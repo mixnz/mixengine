@@ -52,6 +52,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use mixengine_platform::handover::RESOLVER_POINTER;
 use mixengine_proto::RuntimeKind;
 
 use crate::{Error, Result};
@@ -486,7 +487,27 @@ pub struct Refreshed {
 /// `packaging/common.sh` ships it, which is roadmap task T85c not happening twice.
 pub const BINARY: &str = "mixengine-shim";
 
-/// Where the shim binary is, given the program that is asking.
+/// The file `<root>/bin` holds under every name on Windows — roadmap task **T185**. See [`Source`].
+///
+/// Shipped beside [`BINARY`] and held to `packaging/common.sh` by the same test, for the same
+/// reason: a Windows install without it has a `bin/` that cannot be filled.
+pub const TRAMPOLINE: &str = "mixengine-trampoline";
+
+/// What [`refresh`] fills `bin/` from.
+#[derive(Debug, Clone)]
+pub struct Source {
+    /// `mixengine-shim`, which resolves.
+    pub resolver: PathBuf,
+
+    /// What goes into `bin/` under every name: [`TRAMPOLINE`] on Windows, where a shim outlives
+    /// the program it starts and every name must be a file of its own (see `link`), and the
+    /// resolver itself elsewhere, where it `exec`s away and one file linked under every name is
+    /// enough.
+    pub placed: PathBuf,
+}
+
+/// Where the shim binary is, given the program that is asking — and, on Windows, the trampoline
+/// beside it (T185).
 ///
 /// It sits beside whatever is running — `mixengined` in an install, and the same `target/debug` in
 /// a development tree — because a release ships the two next to each other and there is nothing
@@ -495,29 +516,45 @@ pub const BINARY: &str = "mixengine-shim";
 ///
 /// # Errors
 ///
-/// [`Error::ShimMissing`] when there is no such file, which is a broken installation rather than
-/// anything a user did.
-pub fn source(program: &Path) -> Result<PathBuf> {
+/// [`Error::ShimMissing`] naming whichever of the two is not there, which is a broken installation
+/// rather than anything a user did.
+pub fn source(program: &Path) -> Result<Source> {
     let beside = program.parent().unwrap_or_else(|| Path::new("."));
-    let shim = beside.join(format!("{BINARY}{}", std::env::consts::EXE_SUFFIX));
+    let resolver = present(beside, BINARY)?;
 
-    match shim.is_file() {
-        true => Ok(shim),
-        false => Err(Error::ShimMissing { path: shim }),
+    // The same constant `link` reads, for the same reason: see [`Source::placed`].
+    let placed = match cfg!(windows) {
+        true => present(beside, TRAMPOLINE)?,
+        false => resolver.clone(),
+    };
+
+    Ok(Source { resolver, placed })
+}
+
+/// `name` in `directory`, with this platform's executable suffix, if it is a file.
+fn present(directory: &Path, name: &str) -> Result<PathBuf> {
+    let file = directory.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+
+    match file.is_file() {
+        true => Ok(file),
+        false => Err(Error::ShimMissing { path: file }),
     }
 }
 
-/// Put one copy of `shim` in `bin` for every command in [`COMMANDS`], and remove what is not one.
+/// Put one copy of [`Source::placed`] in `bin` for every command in [`COMMANDS`], and remove what
+/// is not one.
 ///
-/// Idempotent, and cheap when there is nothing to do: a copy whose length matches the shim's and
+/// Idempotent, and cheap when there is nothing to do: a copy whose length matches the source's and
 /// whose modification time is not older is left alone, so the common case is a stat per command and
-/// no bytes moved. An upgrade replaces the shim binary with one that is a different length or newer
-/// than the copies, and every copy is rewritten.
+/// no bytes moved. An upgrade replaces the source binary with one that is a different length or
+/// newer than the copies, and every copy is rewritten.
 ///
 /// **The pass that is *not* idempotent — the first one, on a home that has never had a daemon — is
 /// the expensive one, and `place` is where that cost is paid or avoided.** Nineteen names is a hard
-/// link apiece where the filesystem gives one file a second name, and nineteen times the shim binary
-/// where it does not — which on Windows is always, for the reason stated there.
+/// link apiece where the filesystem gives one file a second name, and nineteen copies where it does
+/// not — which on Windows is always, for the reason stated there. Since T185 what is copied there is
+/// the trampoline, a few hundred KB, and `bin/` also holds [`RESOLVER_POINTER`]: the one line that
+/// tells each trampoline where the resolver is.
 ///
 /// **Not a transaction, and it cannot be one**: nineteen files cannot be renamed into place at
 /// once. What that costs is bounded by the fact that every copy is the *same program* — a `bin/`
@@ -529,7 +566,7 @@ pub fn source(program: &Path) -> Result<PathBuf> {
 /// [`Error::Io`] naming the file that could not be written. Failing to *remove* a stranger is not
 /// one — it lands in [`Refreshed::refused`] — because a directory that has what it should have is
 /// working, and refusing to start over a file nobody can delete would be worse than saying so.
-pub fn refresh(bin: &Path, shim: &Path, extra: &[Extra]) -> Result<Refreshed> {
+pub fn refresh(bin: &Path, source: &Source, extra: &[Extra]) -> Result<Refreshed> {
     crate::paths::create_dir(bin)?;
 
     let mut refreshed = Refreshed::default();
@@ -541,6 +578,11 @@ pub fn refresh(bin: &Path, shim: &Path, extra: &[Extra]) -> Result<Refreshed> {
     // rather than refused, because the caller's list is a description of a disk and not a request.
     let mut names: Vec<String> = COMMANDS.iter().map(file_name).collect();
     let mut expected: HashSet<String> = names.iter().map(|name| fold(name)).collect();
+
+    // T185: the trampolines' way to the resolver is not a stranger to sweep.
+    if cfg!(windows) {
+        expected.insert(fold(RESOLVER_POINTER));
+    }
 
     for extra in extra {
         let name = format!("{}{}", extra.name, std::env::consts::EXE_SUFFIX);
@@ -558,14 +600,49 @@ pub fn refresh(bin: &Path, shim: &Path, extra: &[Extra]) -> Result<Refreshed> {
     for name in names {
         let target = bin.join(&name);
 
-        if place(shim, &target)? {
+        if place(&source.placed, &target)? {
             refreshed.written.push(name.clone());
         }
 
         refreshed.commands.push(name);
     }
 
+    // T185: only on Windows is there a trampoline to read it.
+    if cfg!(windows) {
+        point_at(bin, &source.resolver)?;
+    }
+
     Ok(refreshed)
+}
+
+/// Write `bin/mixengine-shim.path` when it does not already say `resolver`.
+///
+/// Written beside and renamed over, so a trampoline starting at that moment reads the old line or
+/// the new one and never half of either. UTF-8 and nothing else, because the trampoline reads it
+/// with nothing but the standard library: an install directory whose path is not Unicode is refused
+/// here, by name, rather than turned into a line that points nowhere.
+fn point_at(bin: &Path, resolver: &Path) -> Result<()> {
+    let pointer = bin.join(RESOLVER_POINTER);
+    let io = |source| Error::Io {
+        action: "write where the shim is to",
+        path: pointer.clone(),
+        source,
+    };
+
+    let said = resolver.to_str().ok_or_else(|| {
+        io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "the install directory's path is not Unicode",
+        ))
+    })?;
+
+    if std::fs::read_to_string(&pointer).is_ok_and(|there| there == said) {
+        return Ok(());
+    }
+
+    let staged = bin.join(format!("{RESOLVER_POINTER}.new"));
+    std::fs::write(&staged, said).map_err(io)?;
+    std::fs::rename(&staged, &pointer).map_err(io)
 }
 
 /// Take `bin` back to nothing, which is what an uninstall of the whole home does first.
@@ -607,7 +684,9 @@ fn sweep(bin: &Path, expected: &HashSet<String>, refreshed: &mut Refreshed) {
 
         let removed = std::fs::remove_file(entry.path()).is_ok();
 
-        if name.ends_with(MOVED_ASIDE) {
+        // The pointer, and a staged one a crash left behind (T185), are MixEngine's own and not
+        // commands: removing them is `clear` doing its job, not something to report.
+        if name.ends_with(MOVED_ASIDE) || name.starts_with(RESOLVER_POINTER) {
             continue;
         }
 

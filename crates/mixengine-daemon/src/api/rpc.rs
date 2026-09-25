@@ -2597,6 +2597,15 @@ mod tests {
             b"the shim, as far as a copy is concerned",
         )
         .expect("a file in a temporary home");
+        // What `bin/` is filled from on Windows since T185, and harmless beside it elsewhere.
+        std::fs::write(
+            installed.join(format!(
+                "mixengine-trampoline{}",
+                std::env::consts::EXE_SUFFIX
+            )),
+            b"the trampoline, as far as a copy is concerned",
+        )
+        .expect("a file in a temporary home");
 
         let host = Arc::new(machine(paths.root().to_path_buf()));
 

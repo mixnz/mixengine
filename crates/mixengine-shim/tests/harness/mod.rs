@@ -141,12 +141,8 @@ impl Home {
             },
         }));
 
-        shims::refresh(
-            &self.path().join("bin"),
-            Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
-            &extra,
-        )
-        .expect("bin/ can be filled in a temporary home")
+        shims::refresh(&self.path().join("bin"), &built_source(), &extra)
+            .expect("bin/ can be filled in a temporary home")
     }
 
     /// The client commands of the installed service packages — roadmap task **T130**.
@@ -342,12 +338,8 @@ impl Home {
         let mut extra = self.client_extras();
         extra.extend(globals);
 
-        shims::refresh(
-            &self.path().join("bin"),
-            Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
-            &extra,
-        )
-        .expect("bin/ can be filled in a temporary home")
+        shims::refresh(&self.path().join("bin"), &built_source(), &extra)
+            .expect("bin/ can be filled in a temporary home")
     }
 
     /// A service package on disk and in the database, optionally with one instance of it.
@@ -752,4 +744,16 @@ fn dumped(path: &Path) -> BTreeMap<String, String> {
         .filter_map(|line| line.split_once('='))
         .map(|(name, value)| (name.to_owned(), value.to_owned()))
         .collect()
+}
+
+/// What this build fills `bin/` from: the shim, and on Windows the trampoline beside it (T185).
+///
+/// `cargo test -p mixengine-shim` builds this package's binary and no other, so on Windows the
+/// trampoline is there only after a workspace build or its own — the message says which.
+pub(crate) fn built_source() -> shims::Source {
+    shims::source(Path::new(env!("CARGO_BIN_EXE_mixengine-shim"))).unwrap_or_else(|error| {
+        panic!(
+            "{error} — run `cargo build -p mixengine-trampoline` first, or `cargo test --workspace`"
+        )
+    })
 }

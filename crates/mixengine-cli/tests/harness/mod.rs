@@ -362,8 +362,9 @@ pub(crate) fn daemon_binary() -> PathBuf {
     daemon
 }
 
-/// Copy this build's `mixengined`, and the `mixengine-shim` it reaches for beside itself, into
-/// `directory` — roadmap task **T165** — and hand back the copied daemon.
+/// Copy this build's `mixengined`, and the `mixengine-shim` and `mixengine-trampoline` (T185) it
+/// reaches for beside itself, into `directory` — roadmap task **T165** — and hand back the copied
+/// daemon.
 ///
 /// **For a test about what a daemon finds beside itself.** MixLab's window is looked for next to the
 /// running program and nowhere else, so the only way to give a daemon a window of the test's own is
@@ -372,7 +373,7 @@ pub(crate) fn daemon_installed_in(directory: &Path) -> PathBuf {
     let built = daemon_binary();
     let source = built.parent().expect("the build directory");
 
-    for name in ["mixengined", "mixengine-shim"] {
+    for name in ["mixengined", "mixengine-shim", "mixengine-trampoline"] {
         let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
         std::fs::copy(source.join(&file), directory.join(&file))
             .unwrap_or_else(|error| panic!("copying {file} beside the test's window: {error}"));
