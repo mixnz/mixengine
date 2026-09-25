@@ -35,6 +35,7 @@
 //! the shape of the mitigation nobody has needed yet.
 
 pub mod apply;
+pub mod complete;
 pub mod feed;
 pub mod helper;
 pub mod installed;

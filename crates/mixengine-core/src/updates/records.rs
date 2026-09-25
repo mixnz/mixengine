@@ -41,6 +41,10 @@ pub const RESTORE: &str = "updates.restore";
 /// and D6. While it is here, `update.status` asks the binary on disk what version it is.
 pub const HANDED_OVER: &str = "updates.handed_over";
 
+/// The names an install added to itself from its own payload — roadmap task **T185a**, ADR 0054.
+/// A JSON list; read by the uninstall, which removes them and then clears this.
+pub const COMPLETED: &str = "updates.completed";
+
 /// How far ahead *remind me later* puts the next offer.
 ///
 /// Three days, against a check that runs daily: one day would be tomorrow, which is not what
