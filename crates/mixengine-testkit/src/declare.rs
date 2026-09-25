@@ -222,6 +222,28 @@ pub async fn package(database: &Path) {
     pool.close().await;
 }
 
+/// This home's id, as its first migration wrote it — roadmap task **T182d**.
+///
+/// What every credential address of the home starts with, for a suite that seeds one the way the
+/// daemon would have written it. Read rather than asked for, because no method answers it: the id is
+/// a prefix on a key in the user's credential store and nothing a client needs.
+///
+/// # Panics
+///
+/// If the database cannot be opened, or holds no id.
+pub async fn home_id(database: &Path) -> String {
+    let pool = open(database).await;
+
+    let json: String = sqlx::query_scalar("SELECT value_json FROM settings WHERE key = 'home.id'")
+        .fetch_one(&pool)
+        .await
+        .unwrap_or_else(|error| panic!("this home's id: {error}"));
+
+    pool.close().await;
+
+    serde_json::from_str(&json).unwrap_or_else(|error| panic!("an id spelled as JSON: {error}"))
+}
+
 /// [`database`], for a test that has no runtime of its own — roadmap task **T83**.
 ///
 /// The end-to-end suite of `mix database client` is made of plain `#[test]` functions, as

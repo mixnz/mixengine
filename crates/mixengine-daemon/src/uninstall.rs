@@ -246,6 +246,7 @@ impl Uninstall {
             }
 
             let mut items = merge(measured, privileged);
+            self.forget_credentials(&mut items, false).await;
             self.arm_the_home(&mut items, true);
 
             return Ok(UninstallReport { items });
@@ -310,6 +311,16 @@ impl Uninstall {
                 None => after,
             });
         }
+
+        // T182d: the credential store goes only with a home that is going, so ask the same
+        // question `unfinished` asks, and let a failure here keep the home.
+        let clear = !items.iter().any(|item| {
+            matches!(
+                item.outcome,
+                Removal::Failed { .. } | Removal::Enqueued { .. }
+            )
+        });
+        self.forget_credentials(&mut items, clear).await;
 
         // **The home is kept when anything outside it is still there, whatever was asked for.** A
         // home removed while this machine still routes `.test` to a daemon that no longer exists is
@@ -663,6 +674,86 @@ impl Uninstall {
         }
     }
 
+    /// Forget this home's credentials and the window's, when the home is about to go — T182d.
+    ///
+    /// **Before `arm_the_home`, and only when everything else is clear**, so a failure here keeps
+    /// the home: a home removed with its passwords still in the store is one nothing can clean up,
+    /// and passwords removed from a home that stays are databases nobody can open.
+    async fn forget_credentials(&self, items: &mut [Residue], clear: bool) {
+        let planned = |id| {
+            items
+                .iter()
+                .any(|item| item.id == id && matches!(item.outcome, Removal::Planned { .. }))
+        };
+        let (daemon, window) = (
+            planned(ResidueId::Credentials),
+            planned(ResidueId::WindowCredentials),
+        );
+        if !daemon && !window {
+            return;
+        }
+        if !clear {
+            keep_credentials(items);
+            return;
+        }
+
+        let home = mixengine_core::home::id(&self.store)
+            .await
+            .ok()
+            .map(|id| id.as_str().to_owned());
+        let host = Arc::clone(&self.host);
+
+        let outcomes = tokio::task::spawn_blocking(move || {
+            let keyring = host.keyring();
+            let forget = |service: &str, pick: &dyn Fn(&[String]) -> Vec<String>| {
+                let keys = keyring.keys(service).map(|keys| pick(&keys));
+                let before = keys.as_ref().map_or(0, Vec::len);
+                let forgot = keys.and_then(|keys| {
+                    keys.iter()
+                        .try_for_each(|key| keyring.forget_secret(service, key))
+                });
+                let left = forgot
+                    .and_then(|()| keyring.keys(service))
+                    .map(|keys| pick(&keys).len());
+                forgotten(before, left)
+            };
+
+            let daemon = (daemon && home.is_some()).then(|| {
+                let home = home.clone().unwrap_or_default();
+                forget(mixengine_platform::KEYRING_SERVICE, &move |keys| {
+                    inventory::ours(&home, keys)
+                })
+            });
+            let window = window.then(|| {
+                forget(mixengine_core::window::KEYRING_SERVICE, &|keys| {
+                    keys.to_vec()
+                })
+            });
+            (daemon, window)
+        })
+        .await;
+
+        let (daemon, window) = outcomes.unwrap_or_else(|error| {
+            let failed = || {
+                Some(Removal::Failed {
+                    because: format!("the credential store could not be reached: {error}"),
+                })
+            };
+            (failed(), failed())
+        });
+
+        for item in items.iter_mut() {
+            let outcome = match item.id {
+                ResidueId::Credentials => daemon.clone(),
+                ResidueId::WindowCredentials => window.clone(),
+                _ => None,
+            };
+            if let (Some(outcome), Removal::Planned { .. }) = (outcome, &item.outcome) {
+                item.outcome = outcome;
+            }
+        }
+    }
+
     /// The inventory, taken once.
     async fn rows(&self, query: &UninstallQuery) -> Result<Vec<Residue>, Error> {
         inventory::take(self, query).await
@@ -743,6 +834,38 @@ fn merge(measured: Vec<Residue>, privileged: Vec<Residue>) -> Vec<Residue> {
             false => row,
         })
         .collect()
+}
+
+/// What became of a credential row, from how many keys there were and how many the store still
+/// lists — T182d. Measured, like every other row.
+fn forgotten(before: usize, left: mixengine_platform::Result<usize>) -> Removal {
+    match left {
+        Ok(0) => Removal::Removed {
+            what: format!("forgot {before} from this user's credential store"),
+        },
+        Ok(left) => Removal::Failed {
+            because: format!("{left} of {before} are still in this user's credential store"),
+        },
+        Err(error) => Removal::Failed {
+            because: format!("the credential store could not be read back: {error}"),
+        },
+    }
+}
+
+/// The home stays, so the passwords its data needs stay with it — T182d, D1.
+fn keep_credentials(items: &mut [Residue]) {
+    for item in items.iter_mut() {
+        if matches!(
+            item.id,
+            ResidueId::Credentials | ResidueId::WindowCredentials
+        ) && matches!(item.outcome, Removal::Planned { .. })
+        {
+            item.outcome = Removal::Kept {
+                because: "this home is kept, and the passwords its data needs are kept with it"
+                    .to_owned(),
+            };
+        }
+    }
 }
 
 /// Is this one of the rows the elevated helper answers for?
@@ -882,6 +1005,47 @@ fn settle(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nothing_left_is_a_removal() {
+        assert!(matches!(forgotten(3, Ok(0)), Removal::Removed { .. }));
+    }
+
+    #[test]
+    fn something_left_is_a_failure_naming_how_many() {
+        let Removal::Failed { because } = forgotten(3, Ok(1)) else {
+            panic!("not a failure")
+        };
+        assert!(because.contains('1'), "{because}");
+    }
+
+    #[test]
+    fn a_store_that_cannot_be_read_back_is_a_failure() {
+        let refused = Err(mixengine_platform::Error::UnsupportedPlatform {
+            capability: "Keyring",
+            reason: "gone".to_owned(),
+        });
+        assert!(matches!(forgotten(3, refused), Removal::Failed { .. }));
+    }
+
+    /// Review focus 5: something outside the home failed, so the home stays and so do its
+    /// passwords.
+    #[test]
+    fn a_home_that_stays_keeps_its_passwords() {
+        let mut items = vec![Residue {
+            id: ResidueId::Credentials,
+            what: "1 password".to_owned(),
+            location: "mixengine".to_owned(),
+            outcome: Removal::Planned { how: String::new() },
+        }];
+
+        keep_credentials(&mut items);
+
+        assert!(
+            matches!(items[0].outcome, Removal::Kept { .. }),
+            "{items:?}"
+        );
+    }
 
     /// T185a: the files are removed, and what is reported is read back off the disk.
     #[test]
