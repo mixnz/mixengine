@@ -178,7 +178,7 @@ x509-parser.workspace = true
 # building the helper *on its own*, which is why the release pipeline gives it an invocation of its
 # own and why the check in `lint` runs `cargo tree -p mixengine-elevate --no-default-features`.
 [features]
-default = ["host", "ipc", "process", "signal", "elevated"]
+default = ["host", "ipc", "process", "signal", "elevated", "handover"]
 
 # The `Host` trait and the five capabilities it hands out: home directories, directory permissions,
 # the OS keyring, PATH integration, port ownership — plus `mock` and `generate_secret`. One feature
@@ -224,7 +224,12 @@ ipc = ["dep:tokio", "tokio/io-util", "tokio/net", "tokio/rt", "tokio/sync", "tok
 # `windows/process.rs` waits a handle on — a blocking wait that must not be on a runtime worker. It
 # was never named here before because a workspace build unified it in from the daemon; a build of
 # this crate on its own failed with "cannot find `spawn_blocking` in `tokio::task`".
-process = ["dep:tokio", "tokio/io-util", "tokio/process", "tokio/rt", "tokio/time"]
+process = ["dep:tokio", "tokio/io-util", "tokio/process", "tokio/rt", "tokio/time", "handover"]
+
+# Becoming another program, and the record a resolver hands a trampoline (T185). No optional
+# dependency: `windows-sys` and `libc` are already required. `mixengine-trampoline` takes this and
+# nothing else, which is how it stays a few hundred KB rather than a copy of the tree.
+handover = []
 
 # Two `SignalKind`s on Unix and five console control events on Windows, none of which has a std
 # equivalent. `macros` is the `select!` in `unix/signal.rs`, which waits on SIGINT and SIGTERM at

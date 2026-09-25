@@ -58,8 +58,7 @@ use windows_sys::Win32::Foundation::{
     WAIT_TIMEOUT,
 };
 use windows_sys::Win32::System::Console::{
-    CTRL_BREAK_EVENT, CTRL_C_EVENT, GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE,
-    STD_OUTPUT_HANDLE, SetConsoleCtrlHandler,
+    GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
 };
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_CPU_RATE_CONTROL_ENABLE,
@@ -74,7 +73,6 @@ use windows_sys::Win32::System::Threading::{
     GetExitCodeProcess, GetProcessTimes, INFINITE, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESS_TERMINATE, TerminateProcess, WaitForSingleObject,
 };
-use windows_sys::core::BOOL;
 
 use crate::process::LAST_WORDS;
 use crate::{Error, Result};
@@ -272,94 +270,6 @@ pub(crate) fn group() -> Result<Group> {
 // handed out per run would be a window opening on the user's desktop six times a minute, for ever.
 // Still deliberately not `DETACHED_PROCESS`, which would take the child's console away *and* its
 // inherited standard handles — and this call is made for the output those handles carry.
-
-/// Run `command` in this process's place, as close to an `exec` as this system gets.
-///
-/// The three steps are in the order they have to be in, and each is why the one before it is not
-/// enough on its own:
-///
-/// 1. **The job first**, before the child exists, so there is something to put it into the moment it
-///    does. [`group`]'s `KILL_ON_JOB_CLOSE` is what keeps a killed shim from leaving a `php -S`
-///    holding a port.
-/// 2. **The console handler before the spawn**, because the window between them is one where a
-///    Ctrl-C would end this process by default and take the child down with the job.
-/// 3. **The assignment after the spawn**, which is the one thing that cannot be done in the right
-///    order — see [`Group::adopt`]. A failure is *not* propagated here, unlike everywhere else in
-///    this module: a child that has already exited cannot be assigned and Windows says
-///    `ERROR_ACCESS_DENIED` for it, which for a shim in front of `php -v` is the ordinary case
-///    rather than an exotic one.
-///
-/// The standard handles are inherited rather than hidden — the opposite of every other spawn here,
-/// and the point: this child *is* the program the user ran, so it writes to their terminal and reads
-/// from their pipe.
-pub(crate) fn hand_over(mut command: Command, program: &Path) -> Result<i32> {
-    let group = group()?;
-    ignore_console_interrupts()?;
-
-    let mut child = command.spawn().map_err(|source| Error::Io {
-        action: "run",
-        path: program.to_path_buf(),
-        source,
-    })?;
-
-    let _ = group.assign(child.as_raw_handle().cast());
-
-    let status = child.wait().map_err(|source| Error::Os {
-        action: "wait for the program it handed over to",
-        source,
-    })?;
-
-    // `code` is `None` only for a process ended by something that is not an exit status, which on
-    // this system means it was terminated — `TerminateProcess`, or the job being killed. 1 is what
-    // a shell reads as "it did not work", and the alternative is inventing a zero for a program that
-    // was killed.
-    Ok(status.code().unwrap_or(1))
-}
-
-/// Stop this process from being ended by a Ctrl-C or a Ctrl-Break meant for the program it started.
-///
-/// **A console control event is broadcast, not routed.** Every process attached to the console gets
-/// its own copy, so the child has already been told; what this prevents is *this* process acting on
-/// its copy, since the default action would end the shim, close the job handle, and kill the child
-/// in the same moment it was deciding what to do about the interrupt. A shell that has just had
-/// Ctrl-C pressed in it would then see the prompt come back while the program it was running died
-/// half way through writing a file.
-///
-/// **Only those two.** The handler answers `FALSE` for `CTRL_CLOSE_EVENT`, `CTRL_LOGOFF_EVENT` and
-/// `CTRL_SHUTDOWN_EVENT`, which passes them to the default handler and ends this process — and that
-/// is right: the window is gone, and a child that survived it would be exactly the orphan the job
-/// object exists to prevent.
-fn ignore_console_interrupts() -> Result<()> {
-    /// Says "handled, and I am doing nothing about it" for the two events the child gets a copy of.
-    ///
-    /// Async-signal-safety has no Windows equivalent, but the constraint is the same in spirit: this
-    /// runs on a thread the OS creates inside this process, so it touches nothing and allocates
-    /// nothing.
-    #[expect(
-        unsafe_code,
-        reason = "the unsafety is the signature Windows calls this through and nothing in the body, \
-                  which reads one integer argument and returns another"
-    )]
-    unsafe extern "system" fn ignore(event: u32) -> BOOL {
-        BOOL::from(matches!(event, CTRL_C_EVENT | CTRL_BREAK_EVENT))
-    }
-
-    #[expect(
-        unsafe_code,
-        reason = "the routine is a function of this module with the signature Windows documents, \
-                  and adding a handler only appends to a per-process list"
-    )]
-    let registered = unsafe { SetConsoleCtrlHandler(Some(ignore), 1) };
-
-    if registered == 0 {
-        return Err(Error::Os {
-            action: "keep a Ctrl-C from ending the shim before the program it started",
-            source: io::Error::last_os_error(),
-        });
-    }
-
-    Ok(())
-}
 
 /// Whether a group can be *asked* to stop on this system, as opposed to being killed.
 ///
@@ -609,10 +519,9 @@ impl Group {
 
     /// The same assignment, addressed by handle.
     ///
-    /// [`hand_over`] is the other caller and holds a [`std::process::Child`] rather than a [`RawChild`], because
-    /// the shim runs the user's own program in the user's own terminal: it is not a supervised
-    /// service and is not created from a restricted token. Both callers borrow a handle they own,
-    /// which is the whole of what this needs to be true.
+    /// A shim's hand-over used to be the other caller; since T185 it keeps a job of its own in
+    /// `windows/handover.rs`, so that the `handover` feature needs nothing from `process`. The
+    /// caller borrows a handle it owns, which is the whole of what this needs to be true.
     fn assign(&self, process: HANDLE) -> Result<()> {
         #[expect(
             unsafe_code,
