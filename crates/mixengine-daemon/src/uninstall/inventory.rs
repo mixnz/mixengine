@@ -82,6 +82,11 @@ pub(crate) async fn take(
         mixengine_platform::window_data::locate(mixengine_core::window::IDENTIFIER).as_ref(),
         query.keep_home,
     ));
+    // T182d: what this home and the window keep in the credential store, following the home.
+    rows.extend(credential_rows(
+        &credentials(uninstall).await,
+        query.keep_home,
+    ));
     // Every directory `[paths]` has moved out of the root, in `directories()`' own order. On an
     // ordinary home there are none: `Paths::directories` answers the root's own subdirectories, and
     // only a relocation makes one of them lie somewhere else.
@@ -157,6 +162,145 @@ pub(crate) fn window_rows(
         });
 
     data.chain(cache).collect()
+}
+
+/// What the credential store holds for this uninstall — T182d. Read once, off the runtime.
+pub(crate) struct Found {
+    /// This home's id, or `None` when it could not be read.
+    pub(crate) home: Option<String>,
+    /// Every key under `mixengine`.
+    pub(crate) daemon: mixengine_platform::Result<Vec<String>>,
+    /// Every key under `MixLab`, when this is the home the release window drives.
+    pub(crate) window: Option<mixengine_platform::Result<Vec<String>>>,
+}
+
+/// Read the store for [`credential_rows`].
+pub(crate) async fn credentials(uninstall: &Uninstall) -> Found {
+    let home = mixengine_core::home::id(&uninstall.store)
+        .await
+        .ok()
+        .map(|id| id.as_str().to_owned());
+    let window = is_the_windows_home(uninstall);
+    let host = std::sync::Arc::clone(&uninstall.host);
+
+    let (daemon, window) = tokio::task::spawn_blocking(move || {
+        let keyring = host.keyring();
+        (
+            keyring.keys(mixengine_platform::KEYRING_SERVICE),
+            window.then(|| keyring.keys(mixengine_core::window::KEYRING_SERVICE)),
+        )
+    })
+    .await
+    .unwrap_or_else(|error| {
+        let failed = || {
+            Err(mixengine_platform::Error::Secret {
+                action: "list",
+                service: mixengine_platform::KEYRING_SERVICE.to_owned(),
+                key: "*".to_owned(),
+                source: error.to_string().into(),
+            })
+        };
+        (failed(), None)
+    });
+
+    Found {
+        home,
+        daemon,
+        window,
+    }
+}
+
+/// `keys` that belong to `home`.
+pub(crate) fn ours(home: &str, keys: &[String]) -> Vec<String> {
+    let prefix = format!("{home}/");
+    keys.iter()
+        .filter(|key| key.starts_with(&prefix))
+        .cloned()
+        .collect()
+}
+
+/// **10d.** This home's passwords and the window's — T182d.
+///
+/// They follow the home, as the window's data does. A store with nothing of ours has no row. A
+/// machine with no store at all is the same answer, because it has nothing stored in one, and a
+/// row saying "failed" there would fail every uninstall on a headless Linux. A store that is there
+/// and refused is `Failed`, never absent.
+pub(crate) fn credential_rows(found: &Found, keep_home: bool) -> Vec<Residue> {
+    let row = |id, what: String, location: &str| Residue {
+        id,
+        what,
+        location: location.to_owned(),
+        outcome: match keep_home {
+            true => Removal::Kept {
+                because: "you asked for this home's data to be left where it is, and the \
+                          passwords it needs stay with it"
+                    .to_owned(),
+            },
+            false => Removal::Planned {
+                how: "remove them from this user's credential store".to_owned(),
+            },
+        },
+    };
+    let failed = |id, what: &str, location: &str, because: String| Residue {
+        id,
+        what: what.to_owned(),
+        location: location.to_owned(),
+        outcome: Removal::Failed { because },
+    };
+
+    let mut rows = Vec::new();
+    let daemon_location = format!(
+        "{} · {}/…",
+        mixengine_platform::KEYRING_SERVICE,
+        found.home.as_deref().unwrap_or("this home")
+    );
+
+    match (&found.daemon, found.home.as_deref()) {
+        (Err(mixengine_platform::Error::UnsupportedPlatform { .. }), _) => {}
+        (Err(error), _) => rows.push(failed(
+            ResidueId::Credentials,
+            "this home's passwords",
+            &daemon_location,
+            format!("the credential store could not be listed: {error}"),
+        )),
+        (Ok(_), None) => rows.push(failed(
+            ResidueId::Credentials,
+            "this home's passwords",
+            &daemon_location,
+            "this home's id could not be read, so its passwords cannot be told from another \
+             home's"
+                .to_owned(),
+        )),
+        (Ok(keys), Some(home)) => {
+            let count = ours(home, keys).len();
+            if count > 0 {
+                let noun = if count == 1 { "password" } else { "passwords" };
+                rows.push(row(
+                    ResidueId::Credentials,
+                    format!("{count} {noun} this home's services and databases use"),
+                    &daemon_location,
+                ));
+            }
+        }
+    }
+
+    match &found.window {
+        None | Some(Err(mixengine_platform::Error::UnsupportedPlatform { .. })) => {}
+        Some(Err(error)) => rows.push(failed(
+            ResidueId::WindowCredentials,
+            "MixLab's saved passwords and sync sign-in",
+            mixengine_core::window::KEYRING_SERVICE,
+            format!("the credential store could not be listed: {error}"),
+        )),
+        Some(Ok(keys)) if keys.is_empty() => {}
+        Some(Ok(_)) => rows.push(row(
+            ResidueId::WindowCredentials,
+            "MixLab's saved passwords and sync sign-in".to_owned(),
+            mixengine_core::window::KEYRING_SERVICE,
+        )),
+    }
+
+    rows
 }
 
 /// **10c.** The program files this install added to itself — T185a, ADR 0054.
@@ -892,6 +1036,107 @@ fn trust_place(method: mixengine_platform::TrustStoreMethod) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn found(daemon: &[&str], window: Option<&[&str]>) -> Found {
+        Found {
+            home: Some("0123456789ab".to_owned()),
+            daemon: Ok(daemon.iter().map(|key| (*key).to_owned()).collect()),
+            window: window.map(|keys| Ok(keys.iter().map(|key| (*key).to_owned()).collect())),
+        }
+    }
+
+    /// Review focus 4: another home's keys are neither counted nor offered.
+    #[test]
+    fn only_this_homes_keys_make_the_row() {
+        let rows = credential_rows(
+            &found(
+                &[
+                    "0123456789ab/mariadb@main/root",
+                    "ffffffffffff/mariadb@main/root",
+                    "mariadb@main/root",
+                ],
+                None,
+            ),
+            false,
+        );
+
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].id, ResidueId::Credentials);
+        assert!(rows[0].what.starts_with("1 password"), "{rows:?}");
+        assert!(matches!(rows[0].outcome, Removal::Planned { .. }));
+    }
+
+    #[test]
+    fn nothing_stored_is_no_row() {
+        assert!(credential_rows(&found(&["ffffffffffff/x/y"], Some(&[][..])), false).is_empty());
+    }
+
+    #[test]
+    fn a_kept_home_keeps_both_rows() {
+        let rows = credential_rows(&found(&["0123456789ab/a/b"], Some(&["vault"][..])), true);
+
+        assert_eq!(
+            rows.iter().map(|row| row.id).collect::<Vec<_>>(),
+            [ResidueId::Credentials, ResidueId::WindowCredentials]
+        );
+        assert!(
+            rows.iter()
+                .all(|row| matches!(row.outcome, Removal::Kept { .. })),
+            "{rows:?}"
+        );
+    }
+
+    /// Review focus 1: a machine with no credential store has nothing in one.
+    #[test]
+    fn no_store_at_all_is_no_row() {
+        let absent = || {
+            Err(mixengine_platform::Error::UnsupportedPlatform {
+                capability: "Keyring",
+                reason: "none".to_owned(),
+            })
+        };
+        let rows = credential_rows(
+            &Found {
+                home: Some("0123456789ab".to_owned()),
+                daemon: absent(),
+                window: Some(absent()),
+            },
+            false,
+        );
+
+        assert!(rows.is_empty(), "{rows:?}");
+    }
+
+    /// A store that is there and refused is a failure, never "nothing there".
+    #[test]
+    fn a_store_that_refused_is_a_failed_row() {
+        let refused = Err(mixengine_platform::Error::Secret {
+            action: "list",
+            service: "mixengine".to_owned(),
+            key: "*".to_owned(),
+            source: "denied".into(),
+        });
+        let rows = credential_rows(
+            &Found {
+                home: Some("0123456789ab".to_owned()),
+                daemon: refused,
+                window: None,
+            },
+            false,
+        );
+
+        assert!(
+            matches!(
+                rows[..],
+                [Residue {
+                    id: ResidueId::Credentials,
+                    outcome: Removal::Failed { .. },
+                    ..
+                }]
+            ),
+            "{rows:?}"
+        );
+    }
 
     /// T185a: what the install added to itself is one planned row, listing the recorded names.
     #[test]
