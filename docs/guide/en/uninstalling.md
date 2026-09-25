@@ -49,6 +49,8 @@ That changes nothing and names every single thing it would remove:
 - the entry that starts the daemon when you log in
 - the `PATH` entry
 - the privileged helper, and its audit log
+- the MixLab window's cache and logs, and, with the directory below, its saved connections and
+  history
 - and finally MixLab's own directory
 
 ## Doing it

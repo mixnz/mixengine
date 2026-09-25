@@ -158,6 +158,14 @@ pub enum ResidueId {
     /// `<root>/bin` on this user's `PATH`.
     PathEntry,
 
+    /// A folder the MixLab window saves what a person made in: connections, histories, the sync
+    /// database — **T182b**. It follows the home: kept when the home is kept.
+    WindowData,
+
+    /// A folder the MixLab window keeps its webview's cache and its logs in — **T182b**. Removed with
+    /// the program, whatever is kept.
+    WindowCache,
+
     /// `MIXENGINE_HOME` itself.
     Home,
 
@@ -189,6 +197,8 @@ impl ResidueId {
         Self::AuditLog,
         Self::AutostartEntry,
         Self::PathEntry,
+        Self::WindowData,
+        Self::WindowCache,
         Self::Home,
         Self::RelocatedDirectory,
         Self::InUse,
@@ -358,7 +368,7 @@ mod tests {
         unique.dedup();
 
         assert_eq!(unique.len(), spellings.len(), "{spellings:?}");
-        assert_eq!(spellings.len(), 13);
+        assert_eq!(spellings.len(), 15);
     }
 
     /// T182, D2. The relocated directories are their own choice, and leaving the field out keeps

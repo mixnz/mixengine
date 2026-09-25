@@ -3138,6 +3138,13 @@ mod tests {
             !body.contains("firewall-apply"),
             "a producer's operation rode the uninstall's prompt: {body}"
         );
+        // T182b. The batch removes the audit log it writes itself, even where the inventory found
+        // none. The inventory reads this machine's real log directory, so on a machine that has a log
+        // the row was planned anyway; CI's runners have none, which is where this is decided.
+        assert!(
+            body.contains("audit-log-remove"),
+            "a batch that writes the audit log did not remove it: {body}"
+        );
 
         let pending = daemon
             .api

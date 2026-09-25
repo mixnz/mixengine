@@ -59,6 +59,11 @@ pub(crate) async fn take(
     rows.push(audit_log());
     rows.push(autostart_entry(uninstall));
     rows.push(path_entry(uninstall).await);
+    rows.extend(window_rows(
+        is_the_windows_home(uninstall),
+        mixengine_platform::window_data::locate(mixengine_core::window::IDENTIFIER).as_ref(),
+        query.keep_home,
+    ));
     // Every directory `[paths]` has moved out of the root, in `directories()`' own order. On an
     // ordinary home there are none: `Paths::directories` answers the root's own subdirectories, and
     // only a relocation makes one of them lie somewhere else.
@@ -75,6 +80,65 @@ pub(crate) async fn take(
     rows.extend(in_use(going(&root, &moved, query)).await);
 
     Ok(rows)
+}
+
+/// Is this the home the installed MixLab window drives — T182b?
+///
+/// **The window's folders are one per user and not one per home**, so only the home a release's
+/// window uses may take them: an uninstall of a development home, or of one somebody pointed
+/// `--home` at, must not delete the connections a person saved in the real one.
+fn is_the_windows_home(uninstall: &Uninstall) -> bool {
+    mixengine_platform::RELEASE
+        && mixengine_core::paths::resolve_root(None, &*uninstall.host)
+            .is_ok_and(|default| default == uninstall.paths.root())
+}
+
+/// **10b.** The MixLab window's own folders — T182b.
+///
+/// What a person made there follows the home, kept when it is kept; the webview's cache and the
+/// logs go whatever is kept. A folder that is not there has no row: a headless install has none of
+/// them, and six rows saying so would only lengthen the plan.
+pub(crate) fn window_rows(
+    ours: bool,
+    found: Option<&mixengine_platform::window_data::WindowData>,
+    keep_home: bool,
+) -> Vec<Residue> {
+    let Some(found) = found.filter(|_| ours) else {
+        return Vec::new();
+    };
+
+    let data = found
+        .data
+        .iter()
+        .filter(|path| there(path))
+        .map(|path| Residue {
+            id: ResidueId::WindowData,
+            what: "MixLab's saved connections, histories and sync database".to_owned(),
+            location: path.display().to_string(),
+            outcome: match keep_home {
+                true => Removal::Kept {
+                    because: "you asked for this home's data to be left where it is".to_owned(),
+                },
+                false => Removal::Planned {
+                    how: "remove this directory and everything under it".to_owned(),
+                },
+            },
+        });
+
+    let cache = found
+        .cache
+        .iter()
+        .filter(|path| there(path))
+        .map(|path| Residue {
+            id: ResidueId::WindowCache,
+            what: "MixLab's cache and logs".to_owned(),
+            location: path.display().to_string(),
+            outcome: Removal::Planned {
+                how: "remove this directory and everything under it".to_owned(),
+            },
+        });
+
+    data.chain(cache).collect()
 }
 
 /// **11.** The home, each relocated directory, and every tombstone an earlier run left beside them
@@ -942,5 +1006,51 @@ mod tests {
             Removal::Absent {}
         );
         assert_eq!(helper_row(None, false, None).outcome, Removal::Absent {});
+    }
+
+    /// T182b. The window's folders are this home's only when it is the one the installed window
+    /// uses, what a person made follows the home, and the cache goes whatever is kept.
+    #[test]
+    fn the_windows_folders_follow_the_home_and_the_cache_always_goes() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let data = root.path().join("Roaming").join("io.github.mixnz.mixlab");
+        let cache = root.path().join("Local").join("io.github.mixnz.mixlab");
+        let missing = root.path().join("Caches").join("io.github.mixnz.mixlab");
+        std::fs::create_dir_all(&data).expect("the data folder");
+        std::fs::create_dir_all(&cache).expect("the cache folder");
+
+        let found = mixengine_platform::window_data::WindowData {
+            data: vec![data.clone()],
+            cache: vec![cache.clone(), missing],
+        };
+
+        let removed = window_rows(true, Some(&found), false);
+        assert_eq!(
+            removed
+                .iter()
+                .map(|row| (
+                    row.id,
+                    row.location.clone(),
+                    matches!(row.outcome, Removal::Planned { .. })
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (ResidueId::WindowData, data.display().to_string(), true),
+                (ResidueId::WindowCache, cache.display().to_string(), true),
+            ],
+            "{removed:?}"
+        );
+
+        let kept = window_rows(true, Some(&found), true);
+        assert!(matches!(kept[0].outcome, Removal::Kept { .. }), "{kept:?}");
+        assert!(
+            matches!(kept[1].outcome, Removal::Planned { .. }),
+            "{kept:?}"
+        );
+
+        assert!(
+            window_rows(false, Some(&found), false).is_empty(),
+            "a home the installed window does not use took the window's folders"
+        );
     }
 }

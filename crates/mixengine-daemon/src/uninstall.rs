@@ -288,7 +288,11 @@ impl Uninstall {
                 // back: that is `settle`'s T182b rule, and it holds for them too.
                 None if !matches!(
                     before.id,
-                    ResidueId::Home | ResidueId::RelocatedDirectory | ResidueId::InUse
+                    ResidueId::Home
+                        | ResidueId::RelocatedDirectory
+                        | ResidueId::WindowData
+                        | ResidueId::WindowCache
+                        | ResidueId::InUse
                 ) =>
                 {
                     settle(before, after, granted.is_some(), &waiting)
@@ -459,6 +463,17 @@ impl Uninstall {
             asked.ops.push(op);
         }
 
+        // **Every batch writes the audit log, so every batch removes it** (T182b). The helper records
+        // each operation it applies, so a run whose inventory found no log — an earlier uninstall
+        // removed it — would create one with its own first line and then report that as left
+        // behind. Measured on the first real uninstall after T182b's D7. The helper applies this
+        // last and records nothing for it, whatever position it has in the batch.
+        let remove_the_log = PrivilegedOp::AuditLogRemove {};
+        if !asked.ops.is_empty() && !asked.ops.contains(&remove_the_log) {
+            self.elevation.enqueue(&remove_the_log).await?;
+            asked.ops.push(remove_the_log);
+        }
+
         // The rows that now hold what this run asked for, read back rather than assumed: an
         // operation that was already waiting is the same row, and its id is the one to grant.
         asked.ids = self
@@ -539,12 +554,14 @@ impl Uninstall {
             // records nothing for it, because the line would recreate the file.
             ResidueId::AuditLog => Some(PrivilegedOp::AuditLogRemove {}),
 
-            // The three that need no token, and the two that are the home itself.
+            // The three that need no token, and the directories the daemon removes as it exits.
             ResidueId::BrowserTrust
             | ResidueId::AutostartEntry
             | ResidueId::PathEntry
             | ResidueId::Home
             | ResidueId::RelocatedDirectory
+            | ResidueId::WindowData
+            | ResidueId::WindowCache
             | ResidueId::InUse => None,
         }
     }
@@ -563,7 +580,15 @@ impl Uninstall {
         let mut paths = Vec::new();
 
         for item in items.iter_mut() {
-            if !matches!(item.id, ResidueId::Home | ResidueId::RelocatedDirectory) {
+            // The window's folders go with the home and by the same all-or-nothing removal (T182b):
+            // the webview's cache and a half-removed sync database are the same kind of leftover.
+            if !matches!(
+                item.id,
+                ResidueId::Home
+                    | ResidueId::RelocatedDirectory
+                    | ResidueId::WindowData
+                    | ResidueId::WindowCache
+            ) {
                 continue;
             }
 
@@ -821,9 +846,11 @@ mod tests {
             ResidueId::BrowserTrust,
             ResidueId::AutostartEntry,
             ResidueId::PathEntry,
-            // And the two the daemon removes itself, answered by `arm_the_home`.
+            // And the four the daemon removes itself, answered by `arm_the_home`.
             ResidueId::Home,
             ResidueId::RelocatedDirectory,
+            ResidueId::WindowData,
+            ResidueId::WindowCache,
         ] {
             assert!(!needs_the_helper(id), "{id:?}");
         }

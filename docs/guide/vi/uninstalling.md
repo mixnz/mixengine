@@ -4,7 +4,7 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixLab đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "987539d92d00161f71dd1a0d1640df46935aeee88995c7a123eb914c07975a3f"
+source_sha256 = "d6d913ae3e3783b5f1143251f086419a2f7d7a2539c16d6cfede1c87d5f250d6"
 +++
 
 # Gỡ MixLab
@@ -51,6 +51,8 @@ Lệnh này không thay đổi gì, chỉ liệt kê từng thứ nó sẽ gỡ:
 - mục tự khởi động daemon khi bạn đăng nhập
 - mục trong `PATH`
 - chương trình phụ trợ đặc quyền, cùng nhật ký kiểm tra của nó
+- cache và log của cửa sổ MixLab, cùng các kết nối và lịch sử nó đã lưu nếu thư mục bên dưới
+  cũng bị xóa
 - và cuối cùng là thư mục riêng của MixLab
 
 ## Thực hiện
