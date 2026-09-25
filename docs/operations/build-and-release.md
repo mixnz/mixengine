@@ -141,6 +141,13 @@ history of what they were told.
 `scripts/ask-ci.sh` is those two commands with the push in front, and `scripts/watch-ci.sh` waits
 for the verdict and prints the failing steps rather than a URL.
 
+**And `scripts/gate.sh` in front of the push.** rustfmt, clippy, rustdoc with `-D warnings`,
+`helper-lock.sh --check` and `check-docs.mjs` answer in about a minute here, where a red CI run
+costs twenty; a red gate pushes nothing. It is added because a run went red on a broken intra-doc
+link that clippy had passed. It does not run the test suites, several of which answer for the
+machine rather than for the code, and it checks only this system's `cfg`. `--no-gate` skips it,
+for a push whose point is CI itself.
+
 ### Asking about one job
 
 A full run is thirteen jobs across three operating systems, and there is a loop where eight of them have

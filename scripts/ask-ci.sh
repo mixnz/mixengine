@@ -5,6 +5,13 @@
 #   scripts/ask-ci.sh some-branch     # a branch by name
 #   scripts/ask-ci.sh --watch         # request it, then wait for the verdict
 #   scripts/ask-ci.sh --jobs test     # `test`, `services` and `rustdoc`; every other job is skipped
+#   scripts/ask-ci.sh --no-gate       # push without running `scripts/gate.sh` first
+#
+# **`scripts/gate.sh` runs before the push**, and a red gate pushes nothing: rustfmt, clippy,
+# rustdoc, the helper's version and the documentation links are all answered here in about a minute,
+# where CI answers them in twenty. `--no-gate` is for a push whose point is CI itself — a workflow
+# being edited. A branch named that is not the one checked out is pushed without the gate, since the
+# working tree is the only one it can check.
 #
 # **`--jobs` narrows the question, and a narrowed answer is not an answer about the workspace.**
 # The groups are the job names in `ci.yml` — `lint test system bench bindings docs desktop build` —
@@ -29,6 +36,7 @@
 set -uo pipefail
 
 watch=0
+gate=1
 branch=""
 jobs=""
 want_jobs=0
@@ -40,6 +48,7 @@ for arg in "$@"; do
   fi
   case "$arg" in
     --watch) watch=1 ;;
+    --no-gate) gate=0 ;;
     --jobs) want_jobs=1 ;;
     --jobs=*) jobs="${arg#--jobs=}" ;;
     -*) echo "unknown option: $arg" >&2; exit 64 ;;
@@ -67,6 +76,20 @@ esac
 if [ -z "$branch" ]; then
   echo "not on a branch, and none was named" >&2
   exit 64
+fi
+
+if [ "$gate" -eq 1 ]; then
+  if [ "$branch" != "$(git branch --show-current)" ]; then
+    echo "not running the gate: $branch is not the branch checked out here" >&2
+  else
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+      echo "the gate checks the working tree, which has changes that will not be pushed" >&2
+    fi
+    bash "$(dirname "${BASH_SOURCE[0]}")/gate.sh" || {
+      echo "nothing was pushed; fix the above, or pass --no-gate" >&2
+      exit 1
+    }
+  fi
 fi
 
 git push origin "$branch" || exit 1

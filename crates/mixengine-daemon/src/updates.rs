@@ -815,11 +815,14 @@ impl Updates {
 
         if let Some(existing) = only_file_in(&into) {
             let hashed = existing.clone();
-            let digest =
-                tokio::task::spawn_blocking(move || mixengine_core::install::sha256_of(&hashed))
-                    .await
-                    .ok()
-                    .and_then(Result::ok);
+            // A digest or nothing: a file that cannot be hashed is fetched again, so the error is
+            // dropped where it is made rather than carried out of the closure.
+            let digest = tokio::task::spawn_blocking(move || {
+                mixengine_core::install::sha256_of(&hashed).ok()
+            })
+            .await
+            .ok()
+            .flatten();
 
             if digest.as_deref() == Some(installer.sha256.as_str()) {
                 return Ok(existing);

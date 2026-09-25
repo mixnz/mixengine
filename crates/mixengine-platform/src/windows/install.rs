@@ -210,6 +210,11 @@ pub(crate) fn application_executable(
     placed.to_path_buf()
 }
 
+/// No inode on this system, and no `.pkg` to have replaced a file — roadmap task **T88f**.
+pub(crate) fn file_identity(_path: &std::path::Path) -> Option<(u64, u64)> {
+    None
+}
+
 #[cfg(test)]
 mod application_tests {
     use std::path::{Path, PathBuf};
@@ -246,9 +251,4 @@ mod application_tests {
             )]
         );
     }
-}
-
-/// No inode on this system, and no `.pkg` to have replaced a file — roadmap task **T88f**.
-pub(crate) fn file_identity(_path: &std::path::Path) -> Option<(u64, u64)> {
-    None
 }
