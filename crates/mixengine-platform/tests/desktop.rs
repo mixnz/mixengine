@@ -58,20 +58,29 @@ fn a_failing_exit_inside_the_judgement_names_the_status() {
 }
 
 /// A program still up after the judgement is running, and is reaped later rather than left.
+///
+/// On Windows the waiting program is started directly and not through `cmd`: the launcher gives its
+/// child no console, and a console program *that* child starts is then handed a console of its own —
+/// a window on the desktop of whoever runs the suite. Started directly, `ping` is the detached
+/// child, and has no console to show.
 #[test]
 fn a_program_still_up_after_a_second_is_running() {
     let host = mixengine_platform::host();
-    let line = if cfg!(windows) {
-        "ping -n 4 127.0.0.1 >NUL"
+    let (app, args) = if cfg!(windows) {
+        (
+            InstalledApp {
+                program: PathBuf::from(r"C:\Windows\System32\PING.EXE"),
+            },
+            ["-n", "4", "127.0.0.1"].map(OsString::from).to_vec(),
+        )
     } else {
-        "sleep 3"
+        app_running("sleep 3")
     };
-    let (app, args) = app_running(line);
 
     let started = host
         .desktop_apps()
         .launch(&app, &args, &BTreeMap::new())
-        .expect("the shell runs");
+        .expect("the program runs");
 
     assert!(
         matches!(started, Started::Running { pid } if pid > 0),
