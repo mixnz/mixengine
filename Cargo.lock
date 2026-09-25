@@ -1999,6 +1999,7 @@ name = "mixengine-trampoline"
 version = "0.0.7"
 dependencies = [
  "mixengine-platform",
+ "tempfile",
 ]
 
 [[package]]

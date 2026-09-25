@@ -18,5 +18,9 @@ path = "src/main.rs"
 # tokio, no serde. `handover` is the one feature of the platform crate that brings none of those.
 mixengine-platform = { workspace = true, features = ["handover"] }
 
+[dev-dependencies]
+# A `bin/` of its own for the one test that runs the binary.
+tempfile.workspace = true
+
 [lints]
 workspace = true
