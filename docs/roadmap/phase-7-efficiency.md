@@ -452,8 +452,14 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **An install that updates itself onto this release gets no trampoline** — an update never
       adds a binary — so `shims::source` falls back to copying the shim as before; the next full
       install moves `bin/` to the trampoline. Whether an update may add a binary is its own ADR.
-      Left for later, in the spec: where the shim's own 50–80 ms on Windows goes (T29's), and a
-      size profile for the shim itself, now one file rather than one per name.
+      **The "50–80 ms the shim costs on Windows" the spec measured was mostly PHP's**, found when it
+      was looked into on 2026-09-25: the shim hands PHP `PHP_INI_SCAN_DIR`, and loading the 27
+      extensions `conf.d` enables is ~40 ms of a ~71 ms difference against a bare `php.exe`. The
+      shim's own share is ~30 ms: ~10 ms for the second process, ~7 ms for its image, ~9 ms for the
+      hand-over, and ~5 ms for the resolution T29 budgets. The spec carries the correction.
+      Left for later: a smaller default PHP extension set (a product decision, `php -m` on a
+      terminal has to match the pool), the hand-over's ~9 ms, and a size profile for the shim
+      itself, now one file rather than one per name.
 - [x] **T185a** An install completes itself from its own payload: the first start after an update
       copies `mixengine-trampoline` in from the running version's staged payload, so an in-place
       Windows update gets T185's `bin/` without a reinstall. An update still adds nothing.

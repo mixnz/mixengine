@@ -103,6 +103,15 @@ variant after 5 warm-up runs, interleaved across 3 rounds.
 - **Today's shim already spends 50–80 ms more than `php.exe` alone**, far over T29's 15 ms budget.
   That is not caused by this design, and this design does not fix it. It is a separate task (below).
 
+  > **Corrected 2026-09-25, after this spec was implemented.** The comparison above was not like for
+  > like: `php.exe` alone loaded no `conf.d`, and the shim hands it `PHP_INI_SCAN_DIR`. Measured
+  > layer by layer (release shim, PHP 7.3.33, minimum of 60–100 runs), `php -v` through the shim is
+  > ~97 ms against ~26 ms direct, and of the ~71 ms: **~40 ms is PHP loading the 27 extensions
+  > `conf.d` enables** (the same `php.exe` given only that variable takes 65–68 ms; `PATH` alone
+  > changes nothing); ~10 ms is the second process Windows cannot avoid; ~7 ms is loading the 5.6 MB
+  > shim image; **~5 ms is the resolution T29 budgets**, well inside 15 ms; ~9 ms is the hand-over.
+  > The shim's own share is about 30 ms, not 50–80.
+
 ## What does not change
 
 - The commands in `bin/`, per [ADR 0033](../decisions/0033-bin-is-a-projection-of-what-is-installed.md).
@@ -129,6 +138,11 @@ variant after 5 warm-up runs, interleaved across 3 rounds.
 
 - **Where the 50–80 ms goes.** Startup of the full shim alone, exiting at dispatch, is about 24 ms.
   The remainder is in resolution and hand-over. It needs profiling, and belongs with T29.
+
+  > **Answered 2026-09-25** — see the correction under *Measured*: most of it is PHP's extensions,
+  > not the shim. What is left to shorten, largest first: the default PHP extension set (~40 ms, a
+  > product decision, since `php -m` on a terminal has to match the pool), the hand-over (~9 ms),
+  > and the shim's pre-`main` start (~7 ms; the size profile did not change it).
 - **A size profile for the resolver** (5.87 → 2.68 MB, once). It needs a second `cargo build
   --profile` in `packaging/stage.sh` and in CI's `binaries` job. After this task it saves 3 MB once,
   not per name.
