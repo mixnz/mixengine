@@ -39,6 +39,10 @@ install -m 0755 "$stage/mixengined" "$root$MIX_INSTALL_LINUX/mixengined"
 # It is therefore a name on the user's PATH they can type. `shims::dispatch` answers `None` for it,
 # so it exits 127 saying what it is and listing what it does answer to.
 install -m 0755 "$stage/mixengine-shim" "$root$MIX_INSTALL_LINUX/mixengine-shim"
+# T185: what `bin/` holds per name on Windows. Shipped here too so every system ships one list
+# (`packaging/common.sh`); nothing on this system runs it, and run by hand it exits 127 naming the
+# file it looks for.
+install -m 0755 "$stage/mixengine-trampoline" "$root$MIX_INSTALL_LINUX/mixengine-trampoline"
 
 # **`/usr/local` from a package is against Debian policy and is on purpose** — the T85 design, D3.
 # One lookup path per system, whatever put the file there: a daemon that had to look in two places
@@ -124,6 +128,7 @@ for expected in \
   .$MIX_INSTALL_LINUX/mix \
   .$MIX_INSTALL_LINUX/mixengined \
   .$MIX_INSTALL_LINUX/mixengine-shim \
+  .$MIX_INSTALL_LINUX/mixengine-trampoline \
   .$MIX_INSTALL_LINUX/mixengine-elevate \
   .$MIX_INSTALL_LINUX/mixlab \
   ./usr/local/libexec/mixengine/mixengine-elevate \
@@ -191,7 +196,7 @@ headless_root="$MIX_OUT/debroot-headless"
 rm -rf "$headless_root"
 mkdir -p "$headless_root/DEBIAN" "$headless_root$MIX_INSTALL_LINUX" \
   "$headless_root/usr/local/libexec/mixengine"
-for binary in mix mixengined mixengine-shim mixengine-elevate; do
+for binary in mix mixengined mixengine-shim mixengine-trampoline mixengine-elevate; do
   install -m 0755 "$stage/$binary" "$headless_root$MIX_INSTALL_LINUX/$binary"
 done
 install -m 0755 "$stage/mixengine-elevate" \
@@ -225,6 +230,7 @@ for expected in \
   .$MIX_INSTALL_LINUX/mix \
   .$MIX_INSTALL_LINUX/mixengined \
   .$MIX_INSTALL_LINUX/mixengine-shim \
+  .$MIX_INSTALL_LINUX/mixengine-trampoline \
   .$MIX_INSTALL_LINUX/mixengine-elevate \
   ./usr/local/libexec/mixengine/mixengine-elevate; do
   printf '%s\n' "$headless_contents" | grep -q " $expected\$" || {

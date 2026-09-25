@@ -28,6 +28,7 @@ mkdir -p %{buildroot}@BINDIR@ %{buildroot}/usr/local/libexec/mixengine
 install -m 0755 %{_sourcedir}/mix %{buildroot}@BINDIR@/mix
 install -m 0755 %{_sourcedir}/mixengined %{buildroot}@BINDIR@/mixengined
 install -m 0755 %{_sourcedir}/mixengine-shim %{buildroot}@BINDIR@/mixengine-shim
+install -m 0755 %{_sourcedir}/mixengine-trampoline %{buildroot}@BINDIR@/mixengine-trampoline
 install -m 0755 %{_sourcedir}/mixengine-elevate \
   %{buildroot}/usr/local/libexec/mixengine/mixengine-elevate
 install -m 0755 %{_sourcedir}/mixengine-elevate %{buildroot}@BINDIR@/mixengine-elevate
@@ -37,5 +38,6 @@ install -m 0755 %{_sourcedir}/mixengine-elevate %{buildroot}@BINDIR@/mixengine-e
 @BINDIR@/mix
 @BINDIR@/mixengined
 @BINDIR@/mixengine-shim
+@BINDIR@/mixengine-trampoline
 @BINDIR@/mixengine-elevate
 /usr/local/libexec/mixengine/mixengine-elevate

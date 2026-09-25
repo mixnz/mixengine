@@ -50,6 +50,7 @@ for expected in \
   $MIX_INSTALL_LINUX/mix \
   $MIX_INSTALL_LINUX/mixengined \
   $MIX_INSTALL_LINUX/mixengine-shim \
+  $MIX_INSTALL_LINUX/mixengine-trampoline \
   $MIX_INSTALL_LINUX/mixlab \
   /usr/local/libexec/mixengine/mixengine-elevate \
   /usr/share/applications/mixlab.desktop \
@@ -123,6 +124,7 @@ for expected in \
   $MIX_INSTALL_LINUX/mix \
   $MIX_INSTALL_LINUX/mixengined \
   $MIX_INSTALL_LINUX/mixengine-shim \
+  $MIX_INSTALL_LINUX/mixengine-trampoline \
   $MIX_INSTALL_LINUX/mixengine-elevate \
   /usr/local/libexec/mixengine/mixengine-elevate; do
   printf '%s\n' "$contents" | grep -qx "$expected" || {

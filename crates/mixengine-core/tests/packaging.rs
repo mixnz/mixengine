@@ -82,6 +82,8 @@ fn the_release_ships_every_binary_this_code_looks_for() {
         "mix".to_owned(),
         mixengine_core::updates::apply::SMOKE_EXECUTABLE.to_owned(),
         mixengine_core::shims::BINARY.to_owned(),
+        // T185: what `<root>/bin` holds per name on Windows, looked for beside the daemon.
+        mixengine_core::shims::TRAMPOLINE.to_owned(),
         // The helper beside the program, which the daemon installs the privileged copy from.
         "mixengine-elevate".to_owned(),
         // The window — T105. Read out of the manifest that produces the file rather than spelled

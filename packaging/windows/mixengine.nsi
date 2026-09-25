@@ -259,6 +259,8 @@ Section "MixLab" SecCore
   ; Beside `mixengined.exe`, which is the only place `core::shims::source` looks. Without it the
   ; daemon starts, answers `status`, and `<root>\bin` stays empty — T85c.
   File "${STAGE}\mixengine-shim.exe"
+  ; What `<root>\bin` holds per command name since T185; it runs the shim above to resolve.
+  File "${STAGE}\mixengine-trampoline.exe"
   File "${STAGE}\mixengine-elevate.exe"
   ; MixLab, the window — T105. One name on every operating system: `updates::apply::swap` looks a
   ; payload's name up as `directory.join(binary_name(name))` and `binary_name` appends `.exe` and
@@ -492,6 +494,7 @@ Function un.Checks
   StrCpy $Locked ""
   !insertmacro CheckWritable "$INSTDIR\mix.exe"
   !insertmacro CheckWritable "$INSTDIR\mixengine-shim.exe"
+  !insertmacro CheckWritable "$INSTDIR\mixengine-trampoline.exe"
   !insertmacro CheckWritable "$INSTDIR\mixengine-elevate.exe"
   !insertmacro CheckWritable "$INSTDIR\mixlab.exe"
   ${If} $Locked != ""
@@ -561,6 +564,7 @@ Section "Uninstall"
   !insertmacro RemoveChecked "$INSTDIR\mix.exe"
   !insertmacro RemoveWithRetry "$INSTDIR\mixengined.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixengine-shim.exe"
+  !insertmacro RemoveChecked "$INSTDIR\mixengine-trampoline.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixengine-elevate.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixlab.exe"
   ${If} $Stuck != ""

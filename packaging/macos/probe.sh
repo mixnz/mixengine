@@ -59,6 +59,7 @@ test -f "$pkg" || {
 cli=/usr/local/bin/mix
 daemon=/usr/local/bin/mixengined
 shim=/usr/local/bin/mixengine-shim
+trampoline=/usr/local/bin/mixengine-trampoline
 helper=/Library/PrivilegedHelperTools/dev.mixengine.elevate
 # MixLab, the window — T105. A directory rather than a file, which is why `cleanup` below is `rm -rf`.
 window="/Applications/$MIX_WINDOW_APP"
@@ -67,7 +68,7 @@ window="/Applications/$MIX_WINDOW_APP"
 # same paths is what T85c was; and here the cost of one going stale is concrete — a path missing
 # from `cleanup` is a file this probe leaves on the machine, and the same path missing from the
 # occupied check is the next run failing to notice it and then deleting it as its own.
-paths=("$cli" "$daemon" "$shim" "$helper" "$window")
+paths=("$cli" "$daemon" "$shim" "$trampoline" "$helper" "$window")
 
 # The copy MixEngine installs the helper *from* — roadmap task T88d. **Inside `$window`, and
 # deliberately not in `paths`**: that array is also what `cleanup` removes and what the occupied

@@ -14,21 +14,22 @@ export MIX_ROOT
 MIX_OUT="$MIX_ROOT/target/packaging"
 export MIX_OUT
 
-# The five binaries a release is made of, in the order a reader wants them: the three that install
+# The six binaries a release is made of, in the order a reader wants them: the four that install
 # into one directory, then the one that does not, then the window.
 #
 # **`mixengine-shim` is in this list because `core::shims::source` looks for it beside the running
 # `mixengined` and nowhere else** — T85c. A release without it starts, reports itself healthy, and
 # has an empty `<root>/bin`, which is every runtime command the product exists to provide.
 # `crates/mixengine-core/tests/packaging.rs` reads this line and refuses a build where the two have
-# drifted apart.
+# drifted apart. **`mixengine-trampoline` is here for the same reason** (T185): on Windows it is what
+# `<root>/bin` is filled with. It ships on all three systems so there is one list to keep.
 #
 # **`mixlab` is MixLab, the window** — T105. One name on every operating system, lower case, because
 # `updates::apply::swap` looks a payload's name up as `directory.join(binary_name(name))` and
 # `binary_name` appends this platform's executable suffix and nothing else: an install file spelled
 # any other way is one every future update would skip without a word. On macOS the *bundle* around
 # it is `MIX_WINDOW_APP`; the executable inside it still has this name.
-MIX_BINARIES=(mix mixengined mixengine-shim mixengine-elevate mixlab)
+MIX_BINARIES=(mix mixengined mixengine-shim mixengine-trampoline mixengine-elevate mixlab)
 export MIX_BINARIES
 
 # The crates that produce them, in the same order. Beside the names rather than inside `stage.sh`,
@@ -38,10 +39,10 @@ export MIX_BINARIES
 # workspace of its own that this one excludes (ADR 0027, rule 5), so `cargo build -p mixlab` at the
 # root is an error rather than a build. `packaging/desktop.sh` builds it; this array is what
 # `crates/mixengine-core/tests/packaging.rs` holds against the manifests.
-MIX_CRATES=(mixengine-cli mixengine-daemon mixengine-shim mixengine-elevate mixlab)
+MIX_CRATES=(mixengine-cli mixengine-daemon mixengine-shim mixengine-trampoline mixengine-elevate mixlab)
 export MIX_CRATES
 
-# The one of the five that is not an ordinary binary, named once so that the several scripts which
+# The one of the six that is not an ordinary binary, named once so that the several scripts which
 # have to treat it differently do not each spell it — T105.
 MIX_WINDOW=mixlab
 export MIX_WINDOW
@@ -95,13 +96,13 @@ export MIX_INSTALL_LINUX
 # `crates/mixengine-core/tests/packaging.rs` holds both install pages to them.
 #
 # **2.35 is the glibc of `ubuntu-22.04`, the runner both Linux legs build the window on.** It cannot
-# be built in the `manylinux_2_28` container the other four binaries come from, whose WebKitGTK is
+# be built in the `manylinux_2_28` container the other five binaries come from, whose WebKitGTK is
 # the 4.0 API on libsoup 2 (T103, D12). The binary itself usually needs less than the machine that
 # built it, and `window-floor.sh` prints what it really needs; the number *promised* is the build
 # machine's, because no distribution sits between the two that would gain from a lower one —
 # enterprise Linux 9 is at 2.34 and has no WebKitGTK 4.1 at all.
 #
-# The command line is unaffected by either. The four binaries keep the container's glibc 2.28 floor
+# The command line is unaffected by either. The five binaries keep the container's glibc 2.28 floor
 # in every artifact, which is why the headless packages install below the window's floor.
 MIX_WINDOW_GLIBC=2.35
 export MIX_WINDOW_GLIBC

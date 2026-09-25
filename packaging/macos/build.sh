@@ -76,6 +76,8 @@ merge mixengined "$root$MIX_INSTALL_MACOS/mixengined"
 # slices as its neighbours, because a `.pkg` that is universal in three of four binaries is not
 # universal.
 merge mixengine-shim "$root$MIX_INSTALL_MACOS/mixengine-shim"
+# T185: what `bin/` holds per name on Windows, shipped here so every system ships one list.
+merge mixengine-trampoline "$root$MIX_INSTALL_MACOS/mixengine-trampoline"
 
 # The one file that goes somewhere only root can write, at exactly the path
 # `mixengine_platform::install::helper_path()` returns — so a machine installed from this package
@@ -117,6 +119,7 @@ chmod 755 \
   "$root$MIX_INSTALL_MACOS/mix" \
   "$root$MIX_INSTALL_MACOS/mixengined" \
   "$root$MIX_INSTALL_MACOS/mixengine-shim" \
+  "$root$MIX_INSTALL_MACOS/mixengine-trampoline" \
   "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" \
   "$root/Applications/$MIX_WINDOW_APP/Contents/Resources/mixengine-elevate" \
   "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"
@@ -198,6 +201,7 @@ for expected in \
   .$MIX_INSTALL_MACOS/mix \
   .$MIX_INSTALL_MACOS/mixengined \
   .$MIX_INSTALL_MACOS/mixengine-shim \
+  .$MIX_INSTALL_MACOS/mixengine-trampoline \
   ./Library/PrivilegedHelperTools/dev.mixengine.elevate \
   "./Applications/$MIX_WINDOW_APP/Contents/Resources/mixengine-elevate" \
   "./Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"; do
@@ -224,7 +228,7 @@ expected_archs="$(for slice in $slices; do lipo_name "$slice"; done | sort | tr 
 archs_of() {
   lipo -archs "$1" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' '
 }
-for binary in mix mixengined mixengine-shim; do
+for binary in mix mixengined mixengine-shim mixengine-trampoline; do
   architectures="$(archs_of "$root$MIX_INSTALL_MACOS/$binary")"
   test "$architectures" = "$expected_archs" || {
     echo "$binary holds the slices '$architectures', and this build made '$expected_archs'" >&2
@@ -251,7 +255,7 @@ mix_checksum "$dist/$name"
 headless_root="$MIX_OUT/pkgroot-headless"
 rm -rf "$headless_root"
 mkdir -p "$headless_root$MIX_INSTALL_MACOS" "$headless_root/Library/PrivilegedHelperTools"
-for binary in mix mixengined mixengine-shim; do
+for binary in mix mixengined mixengine-shim mixengine-trampoline; do
   cp -p "$root$MIX_INSTALL_MACOS/$binary" "$headless_root$MIX_INSTALL_MACOS/$binary"
 done
 cp -p "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" \
@@ -276,6 +280,7 @@ for expected in \
   .$MIX_INSTALL_MACOS/mix \
   .$MIX_INSTALL_MACOS/mixengined \
   .$MIX_INSTALL_MACOS/mixengine-shim \
+  .$MIX_INSTALL_MACOS/mixengine-trampoline \
   ./Library/PrivilegedHelperTools/dev.mixengine.elevate; do
   printf '%s\n' "$headless_files" | grep -qx "$expected" || {
     echo "$expected is not in the headless package" >&2

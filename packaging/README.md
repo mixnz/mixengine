@@ -36,16 +36,18 @@ learn which version and which machine the bytes are for. Roadmap task **T88a**, 
 [ADR 0018](../docs/decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md).
 
 Everything lands in `target/packaging/dist/`, with a `.sha256` beside each artifact. Each script
-opens what it just made and checks the five binaries are in it before it exits — four for a headless
+opens what it just made and checks the six binaries are in it before it exits — five for a headless
 archive, which is additionally checked for *not* holding the window. An empty archive is a perfectly
 valid archive, and nothing else in the pipeline would notice.
 
 **`mixengine-shim` goes beside `mixengined` in every one of them**, because that is the only place
 `core::shims::source` looks. An artifact without it installs cleanly, starts, reports itself healthy,
 and leaves `<root>/bin` empty — which is every runtime command the product exists to provide
-(roadmap task **T85c**). `packaging/common.sh` names the five binaries and the five crates that
+(roadmap task **T85c**). `mixengine-trampoline` goes beside it for the same reason: on Windows it is
+what `<root>/bin` is filled with, and it ships on the other two so there is one list (T185).
+`packaging/common.sh` names the six binaries and the six crates that
 produce them, in one place, and `crates/mixengine-core/tests/packaging.rs` fails the build when that
-list and the names the code looks for drift apart. `MIX_WINDOW` there names the fifth — the one
+list and the names the code looks for drift apart. `MIX_WINDOW` there names the sixth — the one
 entry several scripts have to treat differently, and the one a headless archive leaves out.
 
 Two pieces here have checks that need no packaging tools and run on any of the three systems, because
@@ -97,7 +99,7 @@ Linux have no payload since T182b.
 
 It holds **one top-level `mixengine/` directory**, which is what lets one `provides` shape in
 the feed describe every artifact this project ships — and what stops a zip extracted into `Downloads`
-scattering five binaries there.
+scattering six binaries there.
 
 **A headless archive is never a payload.** None is published since T182b, and `feed.sh` still skips
 `*-headless.*` by name: one that got in would produce a second row for an (os, arch) pair that
