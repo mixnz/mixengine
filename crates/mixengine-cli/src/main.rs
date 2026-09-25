@@ -3607,7 +3607,7 @@ const PROCESS_GONE: std::time::Duration = std::time::Duration::from_secs(120);
 ///
 /// **And it says that it is waiting** (T182b). Removing a home of a gigabyte takes a minute on
 /// Windows, and a person watching the uninstaller saw nothing move for all of it: one line when the
-/// wait begins, with how much is going, and one every [`STILL`] after.
+/// wait begins, with how much is going, and one every `STILL` after.
 async fn left_behind(
     report: &UninstallReport,
     endpoint: &Endpoint,
