@@ -35,10 +35,17 @@ use keyring::error::Error as KeyringError;
 use crate::{Error, Keyring, Result};
 
 mod file;
+mod vault;
 
-/// The keyring a [`crate::Host`] hands out, for the store it was built with — T184.
+/// The keyring a [`crate::Host`] hands out, for the store it was built with — T184, T186.
+///
+/// On macOS the OS store keeps each home's `mixengine` credentials in one item (`vault`): one
+/// Keychain question per home after an update rather than one per password.
 pub(crate) fn store(credentials: crate::Credentials) -> Box<dyn Keyring> {
     match credentials {
+        crate::Credentials::Os if cfg!(target_os = "macos") => {
+            Box::new(vault::Vaulted::over_the_os(Secrets))
+        }
         crate::Credentials::Os => Box::new(Secrets),
         crate::Credentials::File(path) => Box::new(file::File::new(path)),
     }

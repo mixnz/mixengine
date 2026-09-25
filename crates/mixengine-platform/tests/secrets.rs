@@ -321,3 +321,52 @@ fn keys_lists_what_was_written_under_a_service() {
         .expect("a removal");
     assert!(keyring.keys(&service).expect("a listing").is_empty());
 }
+
+/// T186: on macOS a home's credentials are one Keychain item, listed back by key. Uses a home id no
+/// real home has, and removes it on the way out.
+#[test]
+#[cfg(target_os = "macos")]
+fn a_homes_credentials_round_trip_through_one_item() {
+    let _turn = the_store();
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("a clock")
+        .as_nanos();
+    let home = format!("{unique:x}");
+    let host = host();
+    let keyring = host.keyring();
+    let (root, blog) = (
+        format!("{home}/mariadb@main/root"),
+        format!("{home}/mariadb@main/blog"),
+    );
+
+    keyring
+        .set_secret(mixengine_platform::KEYRING_SERVICE, &root, "a")
+        .expect("a write");
+    keyring
+        .set_secret(mixengine_platform::KEYRING_SERVICE, &blog, "b")
+        .expect("a write");
+
+    let mut ours: Vec<String> = keyring
+        .keys(mixengine_platform::KEYRING_SERVICE)
+        .expect("a listing")
+        .into_iter()
+        .filter(|key| key.starts_with(&format!("{home}/")))
+        .collect();
+    ours.sort();
+    assert_eq!(ours, [blog.clone(), root.clone()]);
+
+    keyring
+        .forget_secret(mixengine_platform::KEYRING_SERVICE, &root)
+        .expect("a removal");
+    keyring
+        .forget_secret(mixengine_platform::KEYRING_SERVICE, &blog)
+        .expect("a removal");
+    assert!(
+        !keyring
+            .keys(mixengine_platform::KEYRING_SERVICE)
+            .expect("a listing")
+            .iter()
+            .any(|key| key.starts_with(&format!("{home}/")))
+    );
+}
