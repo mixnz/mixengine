@@ -45,3 +45,18 @@ Design [docs/specs/2026-09-25-t182b-a-helper-that-keeps-up-and-an-uninstall-that
     MixEngine block in the hosts file, and no `mixengined` process.
 12. **The uninstaller opens on a banner**, *Checking MixLab's folders…*, and then on a page whose
     boxes are already drawn when it appears.
+13. **The page comes to the front.** Once the banner closes, the uninstaller's window is in front
+    and has the focus; nothing has to be found on the taskbar.
+14. **Uninstall answers at once.** Pressing Uninstall moves straight to the progress page, which
+    reads *Checking what is in use.* with the bar moving. With a file of the install held open (a
+    terminal in `%LOCALAPPDATA%\Programs\MixEngine` running `mix status --watch`), a Retry/Cancel box
+    names it; closing the terminal and pressing Retry goes on, and Cancel removes nothing.
+15. **A removal that takes a while shows it.** With the data box ticked on a home of a gigabyte or
+    more, the bar runs as a marquee and the log reads *removing … folders (… MiB), this can take a
+    minute*, then *still removing, …s so far* every ten seconds.
+16. **The window's own folders.** `%LOCALAPPDATA%\io.github.mixnz.mixlab` is gone afterwards whatever
+    was ticked; `%APPDATA%\io.github.mixnz.mixlab` is gone only when the data box was ticked.
+17. **The desktop icon goes with it**, without refreshing the desktop.
+18. **A home something else is standing in.** With File Explorer open inside `%LOCALAPPDATA%\MixEngine`
+    and the data box ticked, the uninstall stops, the log names the folder as open in another
+    program, nothing of the home is removed, and after closing Explorer a second run finishes.

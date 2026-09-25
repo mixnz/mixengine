@@ -209,22 +209,31 @@ Var Stuck
 !macro CloseMixLab UN
 Function ${UN}CloseMixLab
   StrCpy $R0 1
+
+  ; **Asked of the file, not of PowerShell** — T182b. A running image cannot be opened for writing,
+  ; so this answers in no time, where starting PowerShell to count processes cost a second on every
+  ; uninstall. PowerShell is kept for the rare case it is needed: closing a window that is running.
+  ${IfNot} ${FileExists} "$INSTDIR\mixlab.exe"
+    Return
+  ${EndIf}
+  ClearErrors
+  FileOpen $0 "$INSTDIR\mixlab.exe" a
+  ${IfNot} ${Errors}
+    FileClose $0
+    Return
+  ${EndIf}
+
+  MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "MixLab is running. Click OK to close it and continue, or Cancel to stop without changing anything." /SD IDOK IDOK closeit
+  StrCpy $R0 0
+  Return
+
+  closeit:
   System::Call 'Kernel32::SetEnvironmentVariable(t "MIXLAB_EXE", t "$INSTDIR\mixlab.exe")'
-  nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "@(Get-Process mixlab -ErrorAction SilentlyContinue | Where-Object { $$_.Path -eq $$env:MIXLAB_EXE }).Count"`
+  nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "Get-Process mixlab -ErrorAction SilentlyContinue | Where-Object { $$_.Path -eq $$env:MIXLAB_EXE } | Stop-Process -Force"`
   Pop $0
   Pop $1
-  IntOp $1 $1 + 0
-  ${If} $1 > 0
-    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "MixLab is running. Click OK to close it and continue, or Cancel to stop without changing anything." /SD IDOK IDOK closeit
-    StrCpy $R0 0
-    Return
-    closeit:
-    nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "Get-Process mixlab -ErrorAction SilentlyContinue | Where-Object { $$_.Path -eq $$env:MIXLAB_EXE } | Stop-Process -Force"`
-    Pop $0
-    Pop $1
-    ; The image is unmapped a moment after the process has gone.
-    Sleep 1000
-  ${EndIf}
+  ; The image is unmapped a moment after the process has gone.
+  Sleep 1000
 FunctionEnd
 !macroend
 !insertmacro CloseMixLab ""
@@ -397,10 +406,17 @@ Function un.onInit
   ${EndIf}
 FunctionEnd
 
+; **In front, once it exists** — T182b. The banner above held the foreground while the window was
+; being made, and the window then opened behind whatever was under the banner; a person had to find
+; it on the taskbar.
+Function un.onGUIInit
+  BringToFront
+FunctionEnd
+
 ; The choices page — T182, D7. Two boxes, both unticked: keeping is what nobody regrets.
 ;
 ; The second box exists only when `[paths]` moved something out of the home, and it lists what. If
-; `mix` cannot answer, the page offers the home alone and the checks on leaving it say why nothing
+; `mix` cannot answer, the page offers the home alone and the checks that open the uninstall say why nothing
 ; can be removed.
 Function un.ChoicesPage
   ; $Relocated was read in un.onInit, before any page existed.
@@ -444,10 +460,9 @@ Function un.ChoicesLeave
     ${EndIf}
   ${EndIf}
 
-  Call un.Checks
-  ${If} $R0 == 0
-    Abort
-  ${EndIf}
+  ; **Nothing slow here** — T182b. This runs on the window's own thread, so the checks it used to
+  ; make froze the page for a second after Uninstall was pressed. They run first thing in the
+  ; section instead, with the progress bar moving, and still before anything is changed.
 FunctionEnd
 
 ; The flags both `mix uninstall` calls take, in $R1, each with its leading space.
@@ -462,8 +477,10 @@ Function un.Flags
 FunctionEnd
 
 ; Everything that could stop the uninstall half-way, found while nothing has changed — T182, P2.
-; Leaves 1 in $R0 to go on, and 0 to stop.
+; Leaves 1 in $R0 to go on, and 0 to stop; when it stops for something a person can close, what to
+; close is in $R3, and an empty $R3 is a person who chose to stop.
 Function un.Checks
+  StrCpy $R3 ""
   Call un.CloseMixLab
   ${If} $R0 == 0
     Return
@@ -478,7 +495,7 @@ Function un.Checks
   !insertmacro CheckWritable "$INSTDIR\mixengine-elevate.exe"
   !insertmacro CheckWritable "$INSTDIR\mixlab.exe"
   ${If} $Locked != ""
-    MessageBox MB_ICONSTOP "These files are in use. Close the programs using them, then click Uninstall again. Nothing was removed.$\r$\n$Locked" /SD IDOK
+    StrCpy $R3 "These files are in use. Close the programs using them, then click Retry.$\r$\n$Locked"
     StrCpy $R0 0
     Return
   ${EndIf}
@@ -489,11 +506,11 @@ Function un.Checks
   Pop $0
   Pop $1
   ${If} $0 == 3
-    MessageBox MB_ICONSTOP "Some programs are running from MixLab's folders. Close them, then click Uninstall again. Nothing was removed.$\r$\n$\r$\n$1" /SD IDOK
+    StrCpy $R3 "Some programs are running from MixLab's folders. Close them, then click Retry.$\r$\n$\r$\n$1"
     StrCpy $R0 0
     Return
   ${ElseIf} $0 != 0
-    MessageBox MB_ICONSTOP "MixLab could not check what it would remove, so nothing was removed.$\r$\n$\r$\n$1" /SD IDOK
+    StrCpy $R3 "MixLab could not check what it would remove.$\r$\n$\r$\n$1"
     StrCpy $R0 0
     Return
   ${EndIf}
@@ -502,14 +519,24 @@ Function un.Checks
 FunctionEnd
 
 Section "Uninstall"
-  ; `/S` skips the page, so it runs the same checks here, with the defaults.
-  ${If} ${Silent}
-    Call un.Checks
-    ${If} $R0 == 0
-      SetErrorLevel 2
-      Quit
+  ; **The checks, first, while nothing has changed** — T182, P2, and here rather than on the page
+  ; since T182b so the page does not freeze. Something a person can close is offered again after they
+  ; have; Cancel, or a person who chose to stop, ends here with nothing removed.
+  DetailPrint "Checking what is in use."
+  !insertmacro MarqueeOn
+  checks:
+  Call un.Checks
+  ${If} $R0 == 0
+    ${If} $R3 != ""
+    ${AndIfNot} ${Silent}
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$R3" IDRETRY checks
     ${EndIf}
+    !insertmacro MarqueeOff
+    DetailPrint "Nothing was removed."
+    SetErrorLevel 2
+    Abort
   ${EndIf}
+  !insertmacro MarqueeOff
 
   ; **Always: what MixLab changed on this machine** — the hosts block, the resolver wiring, the
   ; certificate authority, the port grant, firewall rules, the login entry, the helper and its log,
@@ -550,9 +577,16 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\MixLab.lnk"
   Delete "$DESKTOP\MixLab.lnk"
 
+  ; **And Explorer is told** — T182b. A deleted shortcut stayed drawn on the desktop until somebody
+  ; refreshed it. SHCNE_DELETE (0x4) with SHCNF_PATHW (0x5) for each, and SHCNE_ASSOCCHANGED
+  ; (0x08000000) for the scheme and the icon removed above.
+  System::Call 'shell32::SHChangeNotify(i 0x4, i 0x5, w "$DESKTOP\MixLab.lnk", p 0)'
+  System::Call 'shell32::SHChangeNotify(i 0x4, i 0x5, w "$SMPROGRAMS\MixLab.lnk", p 0)'
+
   ; Last: the uninstaller and its entry in Installed apps.
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "Software\MixEngine"
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 SectionEnd
