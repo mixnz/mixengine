@@ -35,3 +35,10 @@ pub const NAME: &str = "MixLab";
 /// `Software\Classes\mixlab`, `packaging/linux/mixlab.desktop` declares
 /// `x-scheme-handler/mixlab`, and the window refuses any other scheme, `mixdb` included.
 pub const SCHEME: &str = "mixlab";
+
+/// The application identifier: `apps/desktop/src-tauri/tauri.conf.json`'s `identifier`.
+///
+/// **What names the window's own directories** — Tauri puts its saved connections, histories and
+/// its webview's cache in per-user folders named after it, and `mix uninstall` finds them by this
+/// name (roadmap task **T182b**).
+pub const IDENTIFIER: &str = "io.github.mixnz.mixlab";

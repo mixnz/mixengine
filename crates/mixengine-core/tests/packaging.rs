@@ -252,6 +252,11 @@ fn the_window_is_called_what_it_is_built_as() {
         "window::NAME and tauri.conf.json's productName have drifted apart; the constant is what \
          `mix database client` prints and the manifest is what the title bar says"
     );
+    assert_eq!(
+        Some(mixengine_core::window::IDENTIFIER),
+        parsed.get("identifier").and_then(serde_json::Value::as_str),
+        "window::IDENTIFIER and tauri.conf.json's identifier have drifted apart; the constant is          how `mix uninstall` finds the window's own folders, and the manifest is where Tauri puts them"
+    );
 }
 
 /// The three files the desktop build reads its version out of, read at compile time.

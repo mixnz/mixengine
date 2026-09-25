@@ -385,13 +385,18 @@ Function un.ChoicesPage
 
   ${NSD_CreateCheckbox} 0 0 100% 12u "Also delete MixLab's data"
   Pop $HomeBox
-  ${NSD_CreateLabel} 12u 14u -12u 28u "$LOCALAPPDATA\MixEngine$\r$\nYour databases, certificates and project records. Leave this unticked to keep them for a later install."
+  ; The window's saved connections and history go with the data (T182b); its cache always goes.
+  !ifdef HEADLESS
+    ${NSD_CreateLabel} 12u 14u -12u 36u "$LOCALAPPDATA\MixEngine$\r$\nYour databases, certificates and project records. Leave this unticked to keep them for a later install."
+  !else
+    ${NSD_CreateLabel} 12u 14u -12u 36u "$LOCALAPPDATA\MixEngine$\r$\n$APPDATA\io.github.mixnz.mixlab$\r$\nYour databases, certificates and project records, and MixLab's saved connections and history. Leave this unticked to keep them for a later install."
+  !endif
   Pop $0
 
   ${If} $Relocated != ""
-    ${NSD_CreateCheckbox} 0 50u 100% 12u "Also delete the folders you moved out of it"
+    ${NSD_CreateCheckbox} 0 58u 100% 12u "Also delete the folders you moved out of it"
     Pop $RelocatedBox
-    ${NSD_CreateLabel} 12u 64u -12u 60u "$Relocated"
+    ${NSD_CreateLabel} 12u 72u -12u 60u "$Relocated"
     Pop $0
   ${EndIf}
 

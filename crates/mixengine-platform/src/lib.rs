@@ -123,6 +123,10 @@ pub mod signal;
 pub mod tombstone;
 #[cfg(feature = "host")]
 mod traits;
+// Documented by its own `//!` header: the MixLab window's own folders, which an uninstall removes
+// with the home (T182b). Not a `Host` capability, because nothing here changes the machine.
+#[cfg(feature = "host")]
+pub mod window_data;
 
 // Shared by `linux/` and `macos/`, which both name what they take from it.
 #[cfg(unix)]
