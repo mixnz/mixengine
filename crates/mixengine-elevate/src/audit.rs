@@ -81,7 +81,7 @@ pub(crate) fn entry(caller: &str, nonce: &str, op: &str, outcome: &OpOutcome) ->
 
     serde_json::json!({
         "at": millis(),
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": mixengine_proto::privileged::HELPER_VERSION,
         "caller": caller,
         "nonce": nonce,
         "op": op,
@@ -197,7 +197,7 @@ mod tests {
         assert_eq!(line["outcome"], "already-done");
         assert_eq!(line["caller"], "1000");
         assert_eq!(line["nonce"], "n");
-        assert_eq!(line["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(line["version"], mixengine_proto::privileged::HELPER_VERSION);
     }
 
     #[test]

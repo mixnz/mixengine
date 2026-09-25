@@ -111,6 +111,13 @@ pub struct HelperArtifact {
 
     /// How big it is, for the sentence a person reads before it is fetched.
     pub size: u64,
+
+    /// The helper's own version, which is not the release's — roadmap task **T182b**, D1.
+    ///
+    /// Optional on the wire, so a feed from before T182b still reads: there the helper carried the
+    /// release's version, and [`None`] means exactly that.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 /// Where one machine's installer is published — roadmap task **T88f**.
@@ -137,6 +144,11 @@ pub struct InstallerArtifact {
 
     /// What its bytes hash to, which is what binds it to this signed document.
     pub sha256: String,
+
+    /// `window` or `headless` — T182b, D5. [`None`] is the window's, which is all a feed from
+    /// before T182b listed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flavour: Option<String>,
 }
 
 impl InstallerArtifact {
@@ -176,7 +188,7 @@ impl Feed {
     /// The privileged helper for one machine, or [`None`] when this release published none for it.
     ///
     /// A release from before T88a has an empty list and answers [`None`] for every pair, which is
-    /// the honest answer: there is nothing to fetch, and `mix elevation upgrade` says so.
+    /// the honest answer: there is nothing to fetch, and the daemon leaves the helper as it is.
     #[must_use]
     pub fn helper(&self, os: Os, arch: Arch) -> Option<&HelperArtifact> {
         self.helpers
@@ -187,10 +199,27 @@ impl Feed {
     /// The installer for one machine, or [`None`] when this release published none for it — roadmap
     /// task **T88f**. A release from before it has an empty list and answers [`None`] for every pair.
     #[must_use]
-    pub fn installer(&self, os: Os, arch: Arch) -> Option<&InstallerArtifact> {
-        self.installers
-            .iter()
-            .find(|installer| installer.os == os && installer.arch == arch)
+    ///
+    /// **And for the flavour this copy is** — T182b, D5: `headless` for a copy with no window, which
+    /// the headless package installs, and the window's package otherwise. A row with no `flavour` is
+    /// the window's, which is all a feed from before T182b published.
+    ///
+    /// `kind` is `pkg`, `deb` or `rpm`: a copy a package manager owns is updated by the next
+    /// package of the same kind (`updates::placement::installer_kind`).
+    pub fn installer(
+        &self,
+        os: Os,
+        arch: Arch,
+        kind: &str,
+        headless: bool,
+    ) -> Option<&InstallerArtifact> {
+        self.installers.iter().find(|installer| {
+            let theirs = installer.flavour.as_deref() == Some("headless");
+            installer.os == os
+                && installer.arch == arch
+                && installer.kind == kind
+                && theirs == headless
+        })
     }
 }
 
@@ -274,9 +303,34 @@ mod tests {
             .helper(Os::Windows, Arch::X86_64)
             .expect("the row for this machine");
         assert_eq!(helper.size, 812_345);
+        assert_eq!(
+            helper.version, None,
+            "a feed from before T182b names no helper version"
+        );
         assert!(
             feed.helper(Os::Linux, Arch::X86_64).is_none(),
             "a release with no helper for this pair answers None rather than the first row it holds"
+        );
+    }
+
+    /// T182b, D1. The helper carries a version of its own, which is not the release's.
+    #[test]
+    fn a_helper_names_its_own_version() {
+        let mut document = document();
+        document["helpers"] = serde_json::json!([{
+            "os": "linux",
+            "arch": "x86_64",
+            "url": "https://example.invalid/mixengine-elevate-0.1.1-linux-x86_64",
+            "size": 812_345,
+            "version": "0.1.1"
+        }]);
+
+        let feed: Feed = serde_json::from_value(document).expect("a feed");
+
+        assert_eq!(
+            feed.helper(Os::Linux, Arch::X86_64)
+                .and_then(|helper| helper.version.as_deref()),
+            Some("0.1.1")
         );
     }
 
@@ -312,7 +366,44 @@ mod tests {
         }))
         .expect("a feed without installers reads");
 
-        assert!(feed.installer(Os::Macos, Arch::Aarch64).is_none());
+        assert!(
+            feed.installer(Os::Macos, Arch::Aarch64, "pkg", false)
+                .is_none()
+        );
+    }
+
+    /// T182b, D5. A copy is offered the package of its own flavour: the headless one when it has no
+    /// window, the window's otherwise — and a row naming no flavour is the window's.
+    #[test]
+    fn each_flavour_is_offered_its_own_package() {
+        let row = |flavour: Option<&str>, name: &str| {
+            let mut row = serde_json::json!({
+                "os": "macos", "arch": "aarch64", "kind": "pkg",
+                "url": format!("https://example.invalid/{name}"),
+                "size": 1, "sha256": "00"
+            });
+            if let Some(flavour) = flavour {
+                row["flavour"] = serde_json::json!(flavour);
+            }
+            row
+        };
+        let feed: Feed = serde_json::from_value(serde_json::json!({
+            "schema": 1, "generated_at": "2026-09-25T09:12:00Z", "version": "0.0.8",
+            "published_at": "2026-09-25T09:12:00Z", "notes": "", "artifacts": [],
+            "installers": [
+                row(None, "mixlab-0.0.8-macos-universal.pkg"),
+                row(Some("headless"), "mixengine-0.0.8-macos-universal-headless.pkg"),
+            ]
+        }))
+        .expect("a feed with both flavours reads");
+
+        let url = |headless| {
+            feed.installer(Os::Macos, Arch::Aarch64, "pkg", headless)
+                .map(|installer| installer.url.clone())
+                .expect("a row")
+        };
+        assert!(url(false).ends_with("mixlab-0.0.8-macos-universal.pkg"));
+        assert!(url(true).ends_with("-headless.pkg"));
     }
 
     /// One universal `.pkg`, listed under both Mac rows as the payload is (the T88f design, D2).
@@ -334,11 +425,14 @@ mod tests {
         .expect("a feed with installers reads");
 
         let installer = feed
-            .installer(Os::Macos, Arch::Aarch64)
+            .installer(Os::Macos, Arch::Aarch64, "pkg", false)
             .expect("the aarch64 row");
         assert_eq!(installer.kind, "pkg");
         assert_eq!(installer.as_artifact().sha256, installer.sha256);
         assert_eq!(installer.as_artifact().url, installer.url);
-        assert!(feed.installer(Os::Linux, Arch::X86_64).is_none());
+        assert!(
+            feed.installer(Os::Linux, Arch::X86_64, "deb", false)
+                .is_none()
+        );
     }
 }

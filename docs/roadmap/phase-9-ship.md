@@ -187,6 +187,17 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       finished uninstall ends the daemon whatever it kept (ADR 0051).
       Design: [2026-09-24-t182-removing-mixlab-is-one-act-design.md](../specs/2026-09-24-t182-removing-mixlab-is-one-act-design.md).
       Left open until `packaging/windows/uninstall-check.md` has been walked on a real install.
+- [ ] **T182b** A helper that keeps up, and an uninstall that finishes. The helper gets a version of
+      its own, guarded by a committed fingerprint; the daemon keeps the installed helper in step at
+      every start on every system; the uninstall grants only its own operations and fails any row
+      still present; each system ships one installer with the window and one headless.
+      Design: [2026-09-25-t182b-a-helper-that-keeps-up-and-an-uninstall-that-finishes-design.md](../specs/2026-09-25-t182b-a-helper-that-keeps-up-and-an-uninstall-that-finishes-design.md),
+      ADR 0053. Left open until the T182b cases in `packaging/windows/uninstall-check.md` have been
+      walked on a real install.
+- [ ] **T182c** Authorities from other homes. An uninstall removes only its own home's
+      `MixEngine Local CA`, so a machine that has had several installs or development homes keeps the
+      rest in the trust store for ever (the machine that found T182b held eleven). Decide which of
+      them an uninstall may claim, and how a person removes the others.
 - [ ] **T182a** An uninstall path for macOS and Linux, which have no uninstaller to hang T182 on:
       for example an *Uninstall MixLab…* item in the macOS app that runs the whole removal, deletes
       the `.app` and quits, so the app never outlives it. Until then the handbook's order stands:

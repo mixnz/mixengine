@@ -1,0 +1,41 @@
+Name:           mixengine-headless
+Version:        @VERSION@
+Release:        1
+Summary:        A local web development environment, without the window
+License:        MIT OR Apache-2.0
+URL:            https://github.com/mixnz/mixlab
+BuildArch:      @ARCH@
+
+# **The headless package** — T182b, D5, which replaces the headless tarball. The four command-line
+# programs and the helper, placed as root the way `mixlab` places them, and no window: no WebKitGTK,
+# no menu entry, nothing a server should be made to carry. It conflicts with `mixlab`, which also
+# owns `/usr/bin/mix`; installing one replaces the other.
+Conflicts:      mixlab
+
+# As in mixlab.spec.in: the binaries are already built and stripped by the release profile.
+%global _build_id_links none
+%global __strip /bin/true
+%global __os_install_post %{nil}
+%global debug_package %{nil}
+
+%description
+The command-line programs of MixLab: run and switch multiple PHP, Node.js,
+Python and Ruby versions with a bundled web server, databases and caches,
+local domains and automatic HTTPS.
+
+%install
+mkdir -p %{buildroot}@BINDIR@ %{buildroot}/usr/local/libexec/mixengine
+install -m 0755 %{_sourcedir}/mix %{buildroot}@BINDIR@/mix
+install -m 0755 %{_sourcedir}/mixengined %{buildroot}@BINDIR@/mixengined
+install -m 0755 %{_sourcedir}/mixengine-shim %{buildroot}@BINDIR@/mixengine-shim
+install -m 0755 %{_sourcedir}/mixengine-elevate \
+  %{buildroot}/usr/local/libexec/mixengine/mixengine-elevate
+install -m 0755 %{_sourcedir}/mixengine-elevate %{buildroot}@BINDIR@/mixengine-elevate
+
+%files
+%defattr(-,root,root,-)
+@BINDIR@/mix
+@BINDIR@/mixengined
+@BINDIR@/mixengine-shim
+@BINDIR@/mixengine-elevate
+/usr/local/libexec/mixengine/mixengine-elevate

@@ -34,7 +34,7 @@ const SIGNATURE_SUFFIX: &str = ".minisig";
 ///
 /// Every path that touches the network has one, per `docs/standards/rust.md`. Shorter than the
 /// index's is not warranted and longer is not either: the two files together are about a megabyte,
-/// there is no cache to fall back to, and somebody typed `mix elevation upgrade` and is watching.
+/// there is no cache to fall back to, and a daemon start is waiting on it in the background.
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Check `bytes` against `signature`, and read what the signature says they are.

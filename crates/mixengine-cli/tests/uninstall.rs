@@ -281,7 +281,21 @@ async fn a_complete_uninstall_takes_the_home_and_the_daemon_with_it() {
         return;
     }
 
+    let pid = json(&home.mix(&["status", "--json"]))["daemon"]["pid"]
+        .as_u64()
+        .and_then(|pid| u32::try_from(pid).ok())
+        .expect("the daemon's pid");
+
     let printed = home.mix(&["uninstall", "--yes"]);
+
+    // T182b, D8: `mix` returns only once the daemon's process has ended — not merely its endpoint,
+    // which goes quiet while the daemon is still removing the home and its image still mapped.
+    assert_eq!(
+        mixengine_platform::process::started_at(pid).ok().flatten(),
+        None,
+        "mix returned while the daemon (pid {pid}) was still running:\n{}",
+        stderr(&printed)
+    );
 
     assert!(
         daemon.wait_until_gone(),

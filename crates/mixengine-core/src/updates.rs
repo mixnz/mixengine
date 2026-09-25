@@ -42,7 +42,7 @@ pub mod offer;
 pub mod placement;
 pub mod records;
 
-pub use apply::{KEPT, Swapped};
+pub use apply::Swapped;
 pub use feed::{DEFAULT_URL, Feed, HelperArtifact, SCHEMA};
 pub use offer::Decision;
 pub use placement::Placement;

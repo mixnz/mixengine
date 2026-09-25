@@ -78,13 +78,16 @@ change.
 T88d. Every install format ships at least one copy MixEngine may install *from*, so `mix uninstall`
 removing the installed helper is no longer a machine that can never elevate anything again: the
 `.deb` and the `.rpm` keep one in `/usr/bin` beside `mixengined`, the `.pkg` keeps one inside
-`MixLab.app`, and the other three formats always had one beside the program. The four `require_*`
+`MixLab.app`, and the Windows setups have one beside the program. The four `require_*`
 producers ask for the installation when a machine with none needs something done as root, so the
 recovery does not wait for a daemon restart — which a `keep_home` uninstall does not cause.
 
 **Replacing it across an upgrade is `PrivilegedOp::HelperReplace {}`, and that is not
 auto-update**: nothing is copied until a person allows a batch, which is what "its own explicit
-elevation prompt" means. **The minisign check in front of it is built** — T88a,
+elevation prompt" means. Since T182b the daemon queues it by itself at start when the installed
+helper's version is older than `HELPER_VERSION`, the helper's own version
+([ADR 0053](../decisions/0053-the-helper-has-its-own-version-and-follows-the-product.md)), so it
+rides the next prompt rather than waiting for somebody to ask. **The minisign check in front of it is built** — T88a,
 [ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md). The
 elevated process reads the candidate once, verifies those bytes against a key compiled into itself,
 reads the signed trusted comment for the version and the machine the bytes are for, and refuses an
@@ -98,7 +101,10 @@ checking a signature, proves nothing.
 falling back to the copy beside itself. Falling back would be running the weaker configuration at
 exactly the moment somebody arranged for it; the refusal is reported by `elevation.status` before
 anybody clicks Allow. A machine with *nothing* installed does use the copy beside the program — that
-is a development tree, and a machine before its first prompt.
+is a development tree, and a machine before its first prompt. So does a batch the installed helper
+**cannot read** (T182b, D3): when the copy beside the program reports `HELPER_VERSION` and the
+installed one lacks an operation in the batch, or cannot verify a replacement of itself, the batch
+runs through the copy beside the program. The residual below states what that costs.
 
 ## Local CA
 
@@ -272,9 +278,18 @@ format now ships a copy MixEngine installs *from*. On Linux that copy is in `/us
 so nothing changes there. On macOS it is inside `MixLab.app`, whose contents the installer writes as
 root but whose `/Applications` an account in `admin` — the first account on a Mac — can replace
 wholesale; so on a machine with **no installed helper**, that account can arrange what the next
-prompt elevates, exactly as it can today on Windows and on the portable archives. An installed helper
-is still preferred, and an installed helper that is writable is still refused outright. The daemon
-warns, naming the file, whenever the source it would install from is not an administrator's.
+prompt elevates, exactly as it can on Windows. An installed helper is still preferred, and an
+installed helper that is writable is still refused outright. The daemon warns, naming the file,
+whenever the source it would install from is not an administrator's.
+
+**T182b widened it once more, to a helper too old to do the work.** A machine whose installed helper
+predates an operation, or predates `helper-replace` itself, has no signed path forward: the only
+party that could check a replacement cannot. So such a batch is run by the copy beside the program,
+unchecked, exactly as a first prompt is
+([ADR 0053](../decisions/0053-the-helper-has-its-own-version-and-follows-the-product.md), decision 4).
+It is the same trust a first grant on a new machine already gives that copy, reached on one more
+kind of machine. An older helper that **can** verify its replacement is always replaced through the
+signed path, never this one.
 
 **A second account on the machine is a different matter, and is defended against where it costs
 little.** "Single-user" describes the machine MixEngine is built for, not a licence to hand a

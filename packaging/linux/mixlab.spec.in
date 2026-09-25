@@ -12,6 +12,9 @@ BuildArch:      @ARCH@
 Provides:       mixengine = %{version}-%{release}
 Obsoletes:      mixengine < %{version}-%{release}
 
+# And the headless package of T182b, D5, which owns the same `/usr/bin/mix`.
+Conflicts:      mixengine-headless
+
 # **`Requires:` exists because of the window** — T105. WebKitGTK is a runtime dependency the four
 # command-line binaries never had, and Tauri 2 links the 4.1 API on libsoup 3. A boolean dependency
 # (rpm 4.13+) rather than one name, because Fedora and RHEL call this package `webkit2gtk4.1` and

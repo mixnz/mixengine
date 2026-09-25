@@ -72,12 +72,13 @@ too.
   fetch the feed and must not trust the daemon that did, so it needs a signature it can check itself.
   T88a gave it one — a detached `.minisig` beside its own release asset, listed in the feed's
   `helpers` array — and never a hash inside a document only the daemon read.)*
-- **Each artifact is a plain archive of the release's binaries**, one top-level `mixengine/`
-  directory, published beside the installers — `packaging/README.md`. None of the five installers is
-  a thing an updater can apply: three need root, one needs a Finder dialog, and an AppImage is a file
-  the user placed. The updater applies the archive and never runs an installer, with one exception:
-  a macOS copy the `.pkg` installed is handed the next `.pkg`, below
-  ([ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md)).
+- **The one payload is the Windows zip**, a plain archive of the release's binaries with one
+  top-level `mixengine/` directory — `packaging/README.md`. It is what the per-user Windows install
+  is swapped from. Every other install was placed by an installer that ran as root, and is updated by
+  the next installer of its own kind: the `.pkg` below
+  ([ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md)), and the `.deb`
+  and the `.rpm` after it ([ADR 0053](../decisions/0053-the-helper-has-its-own-version-and-follows-the-product.md)).
+  The zips, the archives, the tarball and the AppImage are not published since v0.0.8.
 - **The payload carries the window, and an update never adds one** — roadmap task **T106**. Since
   T105 every payload holds `mixlab` beside the four command-line binaries, and on macOS that entry is
   `MixLab.app`, a *directory*: `packaging/feed.sh` emits one `provides` row for the bundle and
@@ -108,10 +109,19 @@ too.
   `.pkg` has no scripts. `mix self-update` always prints the package's path and the `installer`
   command, because over SSH the installer opens on the Mac's own screen. The first release carrying
   this cannot reach itself: a `.pkg` user installs it by hand once.
-- **A copy of MixEngine a package manager installed is refused in words, before anything is
-  downloaded** (T88, D7). `mix self-update` write-probes the directory holding `mixengined`; a
-  directory this account cannot write means something else put MixEngine there and something else
-  updates it. It is a probe and never a path table, and it never elevates — an updater that could ask
+- **A Linux copy the `.deb` or the `.rpm` installed is updated by the next package of its kind** —
+  roadmap task **T182b**, D5, [ADR 0053](../decisions/0053-the-helper-has-its-own-version-and-follows-the-product.md).
+  The receipt is the package database that owns `mixengined` (`dpkg:<package>` or
+  `rpm:<package>`), and the feed lists each package with its kind and its flavour, with the window
+  or headless, so a machine is handed the one it has. `update.hand_over` verifies the download and,
+  when there is a desktop session, opens it with `xdg-open`; the software centre asks through
+  polkit. With no desktop it opens nothing and answers `opened: false`. Either way `mix self-update`
+  prints the `sudo apt install` or `sudo dnf install` line, because a software centre that will not
+  install a local package is common. v0.0.8 is the first release that updates this way, to v0.0.9.
+- **Any other copy this account cannot write is refused in words, before anything is downloaded**
+  (T88, D7). `mix self-update` write-probes the directory holding `mixengined`; a directory this
+  account cannot write, with no installer receipt, means something else put MixEngine there and
+  something else updates it. It is a probe and never a path table, and it never elevates — an updater that could ask
   for root would be the vector this page's last section is about.
 - The daemon checks at startup, then at most once every 24 h. Failures are silent — an offline
   machine must never see an error, and never a slower startup.
@@ -147,19 +157,20 @@ their database is worse than a delayed update.
 
 ## What must never auto-update
 
-`mixengine-elevate` is excluded from the automatic path. It is installed once to a root-owned
-location, and updating it requires its own explicit elevation prompt with a minisign check performed
-**inside** the elevated context, against a public key pinned in the currently installed copy.
-The daemon and elevate binary negotiate a protocol version; an old elevate keeps serving the
-operations it knows while the app asks the user to upgrade it.
+**The installed `mixengine-elevate` is never replaced by the updater.** It lives in a root-owned
+location, and a new one reaches it only through an elevation prompt, with a minisign check performed
+**inside** the elevated context against a public key pinned in the currently installed copy.
 
 This is the single most important rule on this page: an auto-updated binary that runs as root, with
 no OS signature, is a local privilege-escalation vector.
 
-**All of that is now built** — roadmap task **T88a**,
+The copy **beside the program** is another matter. It sits in a directory the person's account
+already writes, and since T182b the swap replaces it with every other binary (`KEPT` is gone). That
+is the copy the daemon installs from, so after an update it is always current.
+
+**The mechanism** — roadmap task **T88a**,
 [design](../specs/2026-09-05-t88a-the-helper-update-path-design.md) and
-[ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md). Five
-things it turned out to consist of:
+[ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md):
 
 - **`PrivilegedOp::HelperReplace {}`**, carrying no field, on
   [ADR 0015](../decisions/0015-the-helper-installs-itself.md)'s rule. The candidate is at a
@@ -169,36 +180,51 @@ things it turned out to consist of:
   copy already installed. It reads the bytes **once**, verifies those, and writes **those** — never
   re-opening the file, which a check the caller could step past by swapping it in between.
 - **What the signature says about the candidate**, in the trusted comment minisign's global signature
-  covers: `mixengine-elevate <version> <os> <arch>`. Older than the running helper is refused, and so
-  is another machine's build — a correctly signed `aarch64` helper on an `x86_64` machine is a machine
-  that can no longer elevate anything.
+  covers: `mixengine-elevate <version> <os> <arch>`, where the version is the helper's own
+  (`HELPER_VERSION`, below). Older than the running helper is refused, and so is another machine's
+  build — a correctly signed `aarch64` helper on an `x86_64` machine is a machine that can no longer
+  elevate anything.
 - **Only the installed copy may apply it.** A helper running out of a directory the user can write,
   checking a signature, proves nothing.
-- **What was measured on the way**: `HelperInstall {}` could not perform an upgrade at all. The
-  elevated process on any machine past its first prompt *is* the installed copy, so it compared its
-  own image with its own destination and answered `AlreadyDone` for ever, and `mix self-update`'s
-  `KEPT` rule meant nothing on the machine was ever newer.
 
-**How a machine gets a newer one**: `mix elevation upgrade` reads the verified feed, downloads the
-helper this release published for this machine and its `.minisig`, checks the signature here so a bad
-download costs a sentence rather than a prompt, **runs the candidate once unelevated** so a binary
-Code Integrity refuses is found before anything is queued, and leaves a `helper-replace` row.
-`mix elevation grant` is what raises the prompt — the only door into one, deliberately.
+**The helper has a version of its own** — roadmap task **T182b**,
+[ADR 0053](../decisions/0053-the-helper-has-its-own-version-and-follows-the-product.md).
+`mixengine_proto::privileged::HELPER_VERSION` moves only when what the compiler builds into the
+helper changes since the last release, which `packaging/helper-lock.sh --check` decides from a
+committed fingerprint at commit time. Most releases therefore ship the same helper, and replacing an
+older one costs a prompt only when there is something to replace.
+
+**How a machine gets a newer one: the daemon does it, at every start.** It probes the installed
+helper **unelevated** (`Probe` needs no token, so this costs no prompt) and compares its version with
+`HELPER_VERSION`:
+
+| Installed helper | What the daemon does |
+| --- | --- |
+| same, or newer | nothing |
+| none | queues `HelperInstall`, run by the copy beside the program at the next grant |
+| older, knows `helper-replace` | fetches this release's signed helper, checks it here and runs it once unelevated, then queues `HelperReplace` |
+| older, does not | queues `HelperInstall`, run by the copy beside the program |
+
+The operation joins the next grant and goes **first** in its batch, so nothing after it is answered
+by the old helper. After an update that changed the helper, the daemon raises that grant itself at
+its first start. Offline, a `HelperReplace` waits for the next start. There is no command for this:
+`mix elevation upgrade` is removed.
+
+**A helper too old to read a batch is not the one that runs it.** When the copy beside the program
+reports `HELPER_VERSION` and the installed one lacks an operation in the batch, or cannot verify a
+replacement of itself, the batch runs through the copy beside the program. That is the case the last
+row above relies on.
 
 **And the negotiation is a window rather than a point.** `PROTOCOL_MINIMUM` sits beside
 `PROTOCOL_VERSION`; the helper serves everything between them and refuses above the ceiling, because
 a fixed old binary can never be taught a later protocol and the newer peer is the one that speaks
-down. The daemon learns where the installed helper sits by running it **unelevated** with a `probe` —
-`Probe` needs no token, so this costs no prompt — and marks every request at the lower of the two. It
-reads `supported_ops` from the same answer, which is what lets `mix elevation status` say *"the
-helper here is 0.1.0, which is from before MixEngine could replace one; what replaces it is running
-this release's installer"* instead of spending a prompt to be told `Unsupported`.
+down. The daemon marks every request at the lower of the two, and reads `supported_ops` from the same
+probe.
 
-**What this does not close**: the first prompt on a machine with nothing installed still elevates the
-copy beside the daemon and installs its own image, unchecked — see
-[the security model](../architecture/security-model.md). And an offline machine cannot upgrade its
-helper, because the candidate comes from the release; the `.deb`, the `.rpm` and the `.pkg` place it
-as root at install time and do not have that problem.
+**What this does not close**: the first prompt on a machine with nothing installed, and a batch the
+installed helper cannot read, elevate the copy beside the daemon unchecked — see
+[the security model](../architecture/security-model.md). The `.deb`, the `.rpm` and the `.pkg` place
+the helper as root at install time and do not have that problem.
 
 ## Platform reality when unsigned
 
@@ -217,9 +243,8 @@ That half is [release checklist item 4](../operations/build-and-release.md), and
 readings — whether the SmartScreen warning returns on the next release — cannot be taken before there
 are two releases.
 
-**Linux** — no obstacle. AppImage/deb/rpm unsigned is unremarkable. Not probed: there is no signature
-gate there to measure. The one real first-run friction is that a browser drops the AppImage's
-executable bit, which is the browser's behaviour and not a signing question.
+**Linux** — no obstacle. An unsigned `.deb` or `.rpm` is unremarkable. Not probed: there is no
+signature gate there to measure.
 
 **Windows**
 - SmartScreen shows "Windows protected your PC", and **every release resets whatever reputation the

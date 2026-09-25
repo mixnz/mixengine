@@ -64,6 +64,13 @@ pub fn helper_candidate_signature(home: &std::path::Path) -> PathBuf {
     ))
 }
 
+/// The helper's own version — roadmap task **T182b**, D1.
+///
+/// **Not the product's.** Two releases' helpers would otherwise always differ, and keeping the
+/// installed helper in step would cost a prompt at every update. `crates/mixengine-elevate/helper.lock`
+/// decides when this changes, and `packaging/helper-lock.sh --bump` is what changes it.
+pub const HELPER_VERSION: &str = "0.1.1";
+
 /// What a candidate helper's *signed* trusted comment says it is — roadmap task **T88a**.
 ///
 /// **The only fact about a candidate that a compromised daemon cannot write.** minisign's global
@@ -1149,6 +1156,22 @@ mod tests {
     use super::*;
 
     use crate::PROTOCOL_VERSION;
+
+    /// T182b, D1. The helper's version is its own, and every helper stamped before it (the product
+    /// versions, and the stray `0.1.0` from before the renumbering) compares older.
+    #[test]
+    fn the_helper_version_is_ahead_of_every_stamp_before_it() {
+        let own = crate::PackageVersion::parse(HELPER_VERSION.to_owned()).expect("a version");
+
+        for old in ["0.0.1", "0.0.7", "0.1.0"] {
+            let old = crate::PackageVersion::parse(old.to_owned()).expect("a version");
+            assert_eq!(
+                old.cmp_precedence(&own),
+                std::cmp::Ordering::Less,
+                "{old:?}"
+            );
+        }
+    }
 
     /// The daemon writes this; the helper reads it. A change to either side that the other did not
     /// make shows up here first.

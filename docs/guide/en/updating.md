@@ -44,24 +44,16 @@ In order, and none of the steps is optional:
 4. What is running is stopped, the binaries are replaced, and the daemon exits.
 5. `mix` starts the new daemon, which starts your services again.
 
-## The one binary this never touches
+## The privileged helper
 
-`mixengine-elevate` runs as an administrator, and replacing it is a privileged act. `mix
-self-update` deliberately leaves it exactly as it was.
+`mixengine-elevate` runs as an administrator, so replacing it needs your permission. It has a
+version of its own that moves only when the helper changes, so most updates leave it alone and ask
+nothing.
 
-```bash
-mix elevation upgrade
-```
-
-That is the separate, deliberate act. It downloads the helper this release publishes, checks
-MixLab's signature on it, runs it once to be sure it starts, and puts the replacement in the
-queue. **Nothing is installed by that command**: `mix elevation grant` is what raises the prompt,
-and the helper already installed checks the signature again itself before it allows anything to
-overwrite it.
-
-Old and new coexist safely in the meantime. The daemon and the helper agree a protocol version when
-they talk, and an older helper keeps serving the operations it knows while MixEngine asks you to
-upgrade it.
+When an update does change it, the new daemon asks for permission once, at its first start, and
+the helper already installed checks MixLab's signature on its replacement before it lets itself be
+overwritten. If you decline, nothing breaks: the old helper keeps serving everything it knows, and
+the replacement rides along with the next prompt MixLab needs anyway.
 
 ## When you installed MixLab from the `.pkg` on a Mac
 
@@ -77,15 +69,20 @@ downloaded package and the `sudo installer` command that installs it from a term
 
 The first version that can do this has to be installed by hand once, like any `.pkg`.
 
-## When a package manager installed MixLab
+## On Linux
 
-On Linux, `mix self-update` refuses, says so, and names the directory. That is correct rather than
-unhelpful: a copy installed by `apt` or `dnf` is owned by that package manager, and replacing files
-underneath it would leave your system's own records describing something that is no longer there.
-Update it the way you installed it.
+A copy installed from the `.deb` or the `.rpm` is owned by `apt` or `dnf`, so MixLab does not
+replace its files itself. `mix self-update` downloads the next package of the same kind, checks it
+against the signed release, and prints the command that installs it:
 
-The portable zip, the AppImage, the Windows per-user installer and a build from source are all
-updated by `mix self-update` normally.
+```bash
+sudo apt install '<the path it printed>/mixlab_0.0.9-1_amd64.deb'
+```
+
+On a desktop it also opens the package in your software centre. Once it is installed, finish with
+`mix self-update --finish`.
+
+The Windows installer is updated by `mix self-update` in place.
 
 ## Versions
 

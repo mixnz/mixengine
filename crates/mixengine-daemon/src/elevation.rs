@@ -95,6 +95,28 @@ pub(crate) struct Candidates {
 }
 
 /// The queue, the machine that can be asked about it, and the only door into a prompt.
+/// What a grant does once the prompt has been answered — roadmap task **T182b**, D6.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Afterwards {
+    /// Ask again for the hosts block this home's sites want, which the grant may have made
+    /// redundant. Every ordinary grant.
+    Reconcile,
+
+    /// Nothing: an uninstall's grant, which must not queue again what it is removing.
+    Nothing,
+}
+
+/// The helper a grant runs, and the protocol its request is written at — the T182b design, D3.
+#[derive(Debug, Clone)]
+struct Chosen {
+    /// The file handed to the elevation prompt.
+    path: PathBuf,
+
+    /// What the request is marked at: the lower of this daemon's and the installed helper's, or
+    /// this daemon's own when the shipped copy runs the batch.
+    speaks: mixengine_proto::ProtocolVersion,
+}
+
 #[derive(Debug)]
 pub(crate) struct Elevation {
     /// Where the rows live.
@@ -405,7 +427,7 @@ impl Elevation {
         // nothing to do with it.** macOS's package puts the helper in `/Library/PrivilegedHelperTools`
         // and nothing in `/usr/local/bin` beside `mixengined`, so a gate on the beside copy — which
         // is what this used to open with — meant no packaged macOS install ever ran the handshake:
-        // `mix elevation upgrade` reported *no privileged helper installed* on a machine whose
+        // the helper upgrade reported *no privileged helper installed* on a machine whose
         // helper had just served two grants, and a daemon restart did not change its mind. The
         // beside copy is what an *install* is made from, and that is the only question it answers.
         if installed.is_file() {
@@ -430,7 +452,7 @@ impl Elevation {
         self.enqueue(&PrivilegedOp::HelperInstall {}).await
     }
 
-    /// Ask the installed helper what it is, and remember the answer for `elevation.upgrade`.
+    /// Ask the installed helper what it is, and remember the answer for `helper::keep_in_step`.
     ///
     /// **Version and not bytes, and nothing is enqueued** — roadmap task T88a. The bytes beside this
     /// daemon are *not* the newer helper after a `mix self-update`, which keeps the helper by name;
@@ -720,10 +742,18 @@ impl Elevation {
     /// # Errors
     ///
     /// As [`grant`](Self::grant), which is the whole of what this decides.
-    async fn preflight(&self) -> Result<(Vec<mixengine_proto::PendingOp>, PathBuf), Error> {
-        let waiting = mixengine_core::elevation::pending(&self.store)
+    async fn preflight(
+        &self,
+        only: Option<&[mixengine_proto::PendingOpId]>,
+    ) -> Result<(Vec<mixengine_proto::PendingOp>, Chosen), Error> {
+        let mut waiting = mixengine_core::elevation::pending(&self.store)
             .await
             .map_err(|error| error.to_wire())?;
+
+        // T182b, D6: a caller that queued its own operations raises the prompt over those alone.
+        if let Some(only) = only {
+            waiting.retain(|pending| only.contains(&pending.id));
+        }
 
         if waiting.is_empty() {
             return Err(Error::new(
@@ -733,11 +763,7 @@ impl Elevation {
             .with_hint("`mix elevation status` lists what would be asked for"));
         }
 
-        let helper = mixengine_core::elevation::helper(
-            &self.candidates.program,
-            self.candidates.installed.as_deref(),
-        )
-        .map_err(|error| error.to_wire())?;
+        let helper = self.choose_for(&waiting).await?;
 
         if let Some(reason) = self.reason() {
             return Err(Error::new(
@@ -749,6 +775,104 @@ impl Elevation {
         self.reserve()?;
 
         Ok((waiting, helper))
+    }
+
+    /// Is there a helper where this system keeps one? A read of the file system, no probe.
+    pub(crate) fn helper_is_installed(&self) -> bool {
+        self.candidates
+            .installed
+            .as_deref()
+            .is_some_and(Path::is_file)
+    }
+
+    /// Whether this is the first time this home is asked to prompt for `version`'s helper — the
+    /// T182b design, D2. Answers `true` once per version, so a person who declines is not asked at
+    /// every start; the replacement then waits for the next prompt the product needs anyway.
+    pub(crate) async fn first_prompt_for(&self, version: &str) -> bool {
+        const KEY: &str = "helper.prompted";
+
+        let seen: Option<String> = mixengine_core::updates::records::get(&self.store, KEY)
+            .await
+            .ok()
+            .flatten();
+
+        if seen.as_deref() == Some(version) {
+            return false;
+        }
+
+        if let Err(error) =
+            mixengine_core::updates::records::set(&self.store, KEY, &version.to_owned()).await
+        {
+            tracing::warn!(%error, "could not remember that the helper's prompt was raised");
+        }
+
+        true
+    }
+
+    /// Which helper runs this batch, and at which protocol — the T182b design, D3.
+    ///
+    /// **The installed one, unless it cannot read the batch** and the copy this release ships can.
+    /// The shipped copy is only probed when the installed one's `supported_ops` are missing an
+    /// operation, so an ordinary grant costs nothing extra. When it runs the batch, the request is
+    /// written at this daemon's own protocol, since that copy is this release.
+    async fn choose_for(&self, waiting: &[mixengine_proto::PendingOp]) -> Result<Chosen, Error> {
+        let installed_ops: Option<Vec<String>> = self
+            .facts
+            .lock()
+            .ok()
+            .and_then(|facts| facts.as_ref().map(|facts| facts.supported_ops.clone()));
+
+        let batch: Vec<&str> = waiting.iter().map(|pending| pending.op.name()).collect();
+
+        // Both conditions `Bypass::applies` looks at, read first so that the shipped copy is only
+        // probed when one of them could be true.
+        let worth_asking = installed_ops.as_ref().is_some_and(|known| {
+            let knows = |op: &str| known.iter().any(|name| name == op);
+            batch.iter().any(|op| !knows(op))
+                || (batch.contains(&"helper-install") && !knows("helper-replace"))
+        });
+
+        let shipped_version = match worth_asking {
+            true => match mixengine_core::elevation::shipped(&self.candidates.program) {
+                Some(shipped) => crate::helper::handshake(&shipped, &self.home, &self.elevate)
+                    .await
+                    .map(|facts| facts.version),
+                None => None,
+            },
+            false => None,
+        };
+
+        let bypass =
+            installed_ops
+                .as_deref()
+                .map(|installed_ops| mixengine_core::elevation::Bypass {
+                    installed_ops,
+                    shipped_version: shipped_version.as_deref(),
+                    batch_ops: &batch,
+                });
+
+        let path = mixengine_core::elevation::helper_for(
+            &self.candidates.program,
+            self.candidates.installed.as_deref(),
+            bypass.as_ref(),
+        )
+        .map_err(|error| error.to_wire())?;
+
+        let bypassed = bypass.is_some_and(|bypass| bypass.applies());
+        if bypassed {
+            tracing::info!(
+                helper = %path.display(),
+                "the installed helper cannot read this batch, so the one this release ships runs it"
+            );
+        }
+
+        Ok(Chosen {
+            path,
+            speaks: match bypassed {
+                true => mixengine_proto::PROTOCOL_VERSION,
+                false => self.speaks(),
+            },
+        })
     }
 
     /// Raise the prompt **inside the caller's job**, rather than starting one of its own.
@@ -770,9 +894,31 @@ impl Elevation {
         &self,
         handle: &crate::jobs::JobHandle,
     ) -> Result<serde_json::Value, Error> {
-        let (waiting, helper) = self.preflight().await?;
+        let (waiting, helper) = self.preflight(None).await?;
 
-        self.flush(handle, helper, waiting).await
+        self.flush(handle, helper, waiting, Afterwards::Reconcile)
+            .await
+    }
+
+    /// [`grant_within`](Self::grant_within) over the rows `ids` names, and nothing else waiting —
+    /// roadmap task **T182b**, D6.
+    ///
+    /// **An uninstall grants only what it asked for.** Everything else in the queue is somebody
+    /// else's want: a daemon started on a kept home queues the wiring its sites still need, and a
+    /// prompt raised to take MixEngine off the machine must not put that wiring back.
+    ///
+    /// # Errors
+    ///
+    /// As [`grant_within`](Self::grant_within); none of `ids` still waiting is "nothing is waiting".
+    pub(crate) async fn grant_only(
+        &self,
+        handle: &crate::jobs::JobHandle,
+        ids: &[mixengine_proto::PendingOpId],
+    ) -> Result<serde_json::Value, Error> {
+        let (waiting, helper) = self.preflight(Some(ids)).await?;
+
+        self.flush(handle, helper, waiting, Afterwards::Nothing)
+            .await
     }
 
     /// `elevation.grant` — spend one prompt on everything that is waiting.
@@ -794,14 +940,18 @@ impl Elevation {
     /// when this machine cannot raise a prompt at all. `conflict`, naming the job already running,
     /// when a grant is in flight.
     pub(crate) async fn grant(self: &Arc<Self>) -> Result<JobSummary, Error> {
-        let (waiting, helper) = self.preflight().await?;
+        let (waiting, helper) = self.preflight(None).await?;
 
         let elevation = Arc::clone(self);
         let started = self
             .jobs
             .begin(
                 &JobKind::parse(rpc::method::ELEVATION_GRANT).expect("a valid kind"),
-                move |handle| async move { elevation.flush(&handle, helper, waiting).await },
+                move |handle| async move {
+                    elevation
+                        .flush(&handle, helper, waiting, Afterwards::Reconcile)
+                        .await
+                },
             )
             .await;
 
@@ -864,12 +1014,18 @@ impl Elevation {
     async fn flush(
         &self,
         handle: &crate::jobs::JobHandle,
-        helper: PathBuf,
-        waiting: Vec<mixengine_proto::PendingOp>,
+        helper: Chosen,
+        mut waiting: Vec<mixengine_proto::PendingOp>,
+        afterwards: Afterwards,
     ) -> Result<serde_json::Value, Error> {
         // Released however this ends — including through a panic the RPC layer contains, which is
         // the whole reason it is not a line at the bottom.
         let _slot = Released(self);
+
+        // **The helper's own operation first** — the T182b design, D2. The batch is run by the
+        // helper installed when it starts, so anything after a replacement would still be answered
+        // by the old one. A stable sort keeps every other operation in the order it was queued.
+        put_the_helper_first(&mut waiting);
 
         if handle.is_cancelled() {
             return Err(Error::new(
@@ -891,7 +1047,7 @@ impl Elevation {
             &directory,
             &self.home,
             &waiting,
-            self.speaks(),
+            helper.speaks,
         )
         .map_err(|error| error.to_wire())?;
 
@@ -899,14 +1055,15 @@ impl Elevation {
 
         let path = request.path().to_path_buf();
         let machine = Arc::clone(&self.host);
-        let raised = tokio::task::spawn_blocking(move || machine.elevation().run(&helper, &path))
-            .await
-            .map_err(|join| {
-                Error::new(
-                    ErrorCode::Internal,
-                    format!("the elevation prompt could not be waited on: {join}"),
-                )
-            })?;
+        let raised =
+            tokio::task::spawn_blocking(move || machine.elevation().run(&helper.path, &path))
+                .await
+                .map_err(|join| {
+                    Error::new(
+                        ErrorCode::Internal,
+                        format!("the elevation prompt could not be waited on: {join}"),
+                    )
+                })?;
 
         let answer = self.judge(handle, &request, raised, &waiting).await;
 
@@ -921,7 +1078,12 @@ impl Elevation {
         // grant that made it so rather than by a second prompt a week later. A failure here is
         // logged and not returned: the grant itself succeeded, and reporting it as failed because
         // the follow-up could not be queued would be a worse answer than the truth.
-        if let Err(error) = self.require_hosts().await {
+        //
+        // **Not after an uninstall's grant** (T182b, D6): that prompt takes MixEngine off the
+        // machine, and asking again for the block a site still wants would put back what it removed.
+        if afterwards == Afterwards::Reconcile
+            && let Err(error) = self.require_hosts().await
+        {
             tracing::warn!(%error, "the hosts block could not be reconciled after the grant");
         }
 
@@ -1136,7 +1298,10 @@ impl Elevation {
         let facts = self.facts.lock().ok()?.clone()?;
 
         Some(mixengine_proto::InstalledHelper {
-            upgrade: crate::helper::upgrade_sentence(&facts, env!("CARGO_PKG_VERSION")),
+            upgrade: crate::helper::upgrade_sentence(
+                &facts,
+                mixengine_proto::privileged::HELPER_VERSION,
+            ),
             version: facts.version,
             protocol: facts.speaks.0,
             supported_ops: facts.supported_ops,
@@ -1263,17 +1428,51 @@ impl Drop for Released<'_> {
 /// that removed the audit log recreates it on a machine whose token is already elevated, which is
 /// how CI's Windows runner read an uninstall as unfinished; see `judge`.
 fn may_have_changed_the_helper(waiting: &[mixengine_proto::PendingOp]) -> bool {
-    waiting.iter().any(|pending| {
-        matches!(
-            pending.op,
-            PrivilegedOp::HelperInstall {} | PrivilegedOp::HelperReplace {}
-        )
-    })
+    waiting
+        .iter()
+        .any(|pending| is_about_the_helper(&pending.op))
+}
+
+/// The helper's own operation first, everything else in the order it was queued — the T182b
+/// design, D2.
+fn put_the_helper_first(waiting: &mut [mixengine_proto::PendingOp]) {
+    waiting.sort_by_key(|pending| !is_about_the_helper(&pending.op));
+}
+
+/// Does this operation put a helper where the system keeps one?
+fn is_about_the_helper(op: &PrivilegedOp) -> bool {
+    matches!(
+        op,
+        PrivilegedOp::HelperInstall {} | PrivilegedOp::HelperReplace {}
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// T182b, D2. A batch holding a helper operation and others runs the helper's first, and keeps
+    /// the rest in the order they were queued.
+    #[test]
+    fn the_helper_operation_goes_first_in_its_batch() {
+        let pending = |id: i64, op: PrivilegedOp| mixengine_proto::PendingOp {
+            id: mixengine_proto::PendingOpId(id),
+            description: op.describe(),
+            op,
+            requested_at: Timestamp(0),
+        };
+
+        let mut waiting = vec![
+            pending(1, PrivilegedOp::hosts_apply(Vec::new())),
+            pending(2, PrivilegedOp::AuditLogRemove {}),
+            pending(3, PrivilegedOp::HelperInstall {}),
+        ];
+
+        put_the_helper_first(&mut waiting);
+
+        let order: Vec<i64> = waiting.iter().map(|pending| pending.id.0).collect();
+        assert_eq!(order, vec![3, 1, 2]);
+    }
 
     use mixengine_platform::mock;
 

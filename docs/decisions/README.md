@@ -34,7 +34,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0025](0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md) | A credential is answered only by a method that exists to answer it | Accepted |
 | [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
 | [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted; naming superseded by 0044 |
-| [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Accepted |
+| [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Superseded by 0053 |
 | [0029](0029-every-install-format-carries-a-helper-to-install-from.md) | Every install format carries a helper to install from | Accepted |
 | [0030](0030-the-project-token-expands-to-a-slug.md) | A blueprint's `{project}` expands to a slug, not to the project's name | Accepted |
 | [0038](0038-the-window-is-the-only-desktop-database-client.md) | The window is the only desktop database client, and `desktop-app` is not an extension kind | Accepted |
@@ -48,10 +48,11 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0046](0046-the-sync-server-lives-beside-the-client-it-serves.md) | The sync server lives in this repository, under `server/`, so one CI run proves both halves agree | Accepted |
 | [0047](0047-the-url-scheme-is-mixlab.md) | The URL scheme is `mixlab://`; `mixdb://` is no longer answered | Accepted |
 | [0048](0048-a-file-a-package-manager-placed-leaves-with-the-package.md) | A file a package manager placed leaves with the package; `mix uninstall` keeps a packaged helper on Linux | Accepted |
-| [0049](0049-a-download-is-named-after-what-it-installs.md) | A download is named after what it installs: `mixlab-…` with the window, `mixengine-…-headless` without | Accepted |
-| [0050](0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md) | A copy the `.pkg` installed is updated by the `.pkg`, through Installer.app | Accepted |
+| [0049](0049-a-download-is-named-after-what-it-installs.md) | A download is named after what it installs: `mixlab-…` with the window, `mixengine-…-headless` without | Accepted; its list of downloads amended by 0053 |
+| [0050](0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md) | A copy the `.pkg` installed is updated by the `.pkg`, through Installer.app | Accepted; extended to the Linux packages by 0053 |
 | [0051](0051-an-uninstall-ends-what-it-undoes.md) | An uninstall ends what it undoes, and is the uninstaller's rather than the window's | Accepted |
 | [0052](0052-a-build-that-is-not-a-release-keeps-its-own-credentials.md) | A build that is not a release keeps its credentials in its home, not in the OS store | Accepted |
+| [0053](0053-the-helper-has-its-own-version-and-follows-the-product.md) | The helper has its own version and follows the product through the daemon | Accepted |
 
 ### Desktop (recorded in MixDB)
 

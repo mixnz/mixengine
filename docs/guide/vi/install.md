@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "f939fdf166a411a5036a17e0c8fcf8f9d9a3647113490a31ac7b6c9269d03503"
+source_sha256 = "37c36dbc8dc39ba547c9e9c39bcdc26e0ac1d14c3af386e57577bd1021b6c576"
 +++
 
 # Cài đặt MixLab
@@ -36,10 +36,11 @@ Có năm chương trình. Nên biết mỗi cái làm gì trước khi một tro
 | `mixengine-elevate` | Chương trình duy nhất chạy với quyền quản trị, mỗi lần chỉ vài giây. |
 | **MixLab** | Cửa sổ: bảng điều khiển cho daemon, kèm một client cơ sở dữ liệu, một client HTTP và một terminal. |
 
-Ba chương trình đầu và MixLab được cài chung một lượt, dưới tài khoản của bạn.
-`mixengine-elevate` thì trên hầu hết hệ điều hành bộ cài không đặt vào máy. MixLab sẽ tự cài nó
-vào lần đầu tiên có việc cần quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ
-thấy.
+Ba chương trình đầu và MixLab được cài chung một lượt. Trên Windows chúng được cài dưới tài khoản
+của bạn, và bộ cài không đặt `mixengine-elevate` vào máy: MixLab tự cài nó vào lần đầu tiên có việc
+cần quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ thấy. `.pkg`, `.deb` và
+`.rpm` thì đặt nó vào máy với quyền root ngay lúc cài. Dù cài cách nào, MixLab cũng giữ nó luôn mới:
+khi một bản cập nhật thay đổi nó, lần xin quyền kế tiếp sẽ thay nó.
 
 **Nếu bạn không cần cửa sổ, có bản tải không kèm nó.** Mỗi hệ điều hành đều phát hành một bản
 **headless** chỉ chứa bốn chương trình dòng lệnh và không gì khác — không có cửa sổ, và trên Linux
@@ -49,23 +50,22 @@ container, hay bất kỳ máy nào không có màn hình.
 ## Windows
 
 [**Tải bộ cài**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64-setup.exe)
-· [bản zip portable](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64.zip)
-· [bản zip headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless.zip)
+· [bộ cài headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless-setup.exe)
 · Windows ARM: [bộ cài](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64.zip),
-[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless.zip)
+[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless-setup.exe)
 
-Có ba file được phát hành, file nào cũng là một bản cài đầy đủ.
+Có hai bộ cài được phát hành, bộ nào cũng là một bản cài đầy đủ.
 
 - **`mixlab-<version>-windows-x86_64-setup.exe`**: bộ cài theo từng người dùng. Nó ghi vào
-  profile của bạn và thêm thư mục cài vào `PATH`, nên không cần hộp thoại quản trị, và cũng không
-  đụng tới tài khoản của người khác trên cùng máy. Nó còn thêm **MixLab** vào Start Menu, cho bạn
-  chọn tạo shortcut ngoài desktop ở trang thành phần, và đặt MixLab làm chương trình mở link
+  profile của bạn và thêm thư mục cài vào `PATH`, nên lúc cài không cần quyền quản trị, và cũng
+  không đụng tới tài khoản của người khác trên cùng máy. Nó còn thêm **MixLab** vào Start Menu, cho
+  bạn chọn tạo shortcut ngoài desktop ở trang thành phần, và đặt MixLab làm chương trình mở link
   `mixlab://`.
-- **`mixlab-<version>-windows-x86_64.zip`**: cùng bộ chương trình đó, đóng gói trong một thư
-  mục. Giải nén ở đâu tùy bạn rồi chạy `mix.exe`, hoặc `mixlab.exe` nếu muốn mở cửa sổ.
-- **`mixengine-<version>-windows-x86_64-headless.zip`**: cũng thư mục đó nhưng không có MixLab, chỉ
-  bốn chương trình dòng lệnh và không gì khác.
+- **`mixengine-<version>-windows-x86_64-headless-setup.exe`**: cũng bộ cài đó nhưng không có
+  MixLab, chỉ bốn chương trình dòng lệnh và không gì khác.
+
+Lần đầu MixLab cần quyền quản trị, thường là lúc bạn cho phép bước thiết lập đầu tiên, cùng một hộp
+thoại đó cũng đặt chương trình phụ trợ đặc quyền vào chỗ.
 
 Bản cho Windows ARM được phát hành bên cạnh, đặt tên `aarch64`.
 
@@ -79,15 +79,15 @@ gắn với từng file chứ không gắn với dự án.
 ## macOS
 
 [**Tải gói cài**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-macos-universal.pkg)
-· [bản headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
+· [gói headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.pkg)
 
 **`mixlab-<version>-macos-universal.pkg`**: một gói dùng chung cho cả Intel lẫn Apple silicon. Nó
 đặt các chương trình dòng lệnh vào `/usr/local/bin` và **MixLab** vào `/Applications`, nên cửa sổ có
 mặt trong Spotlight và Launchpad ngay khi cài xong.
 
-**`mixengine-<version>-macos-universal-headless.tar.gz`** là đúng bốn chương trình dòng lệnh đó
-nhưng không kèm MixLab, dành cho máy không cần cửa sổ. Giải nén rồi đặt thư mục ở đâu tùy bạn;
-không có gì được cài sẵn cho bạn cả.
+**`mixengine-<version>-macos-universal-headless.pkg`** cài đúng bốn chương trình dòng lệnh đó và
+cùng chương trình phụ trợ đặc quyền, nhưng không kèm MixLab, dành cho máy không cần cửa sổ. Khi
+cập nhật, mỗi máy Mac nhận đúng loại gói nó đang dùng.
 
 MixLab cũng chưa có Apple Developer ID, nên nếu bạn nhấp đúp gói cài trong Finder thì sẽ gặp hộp
 thoại Gatekeeper. Trên macOS 15 trở lên còn phải vào **System Settings → Privacy & Security → Open
@@ -104,43 +104,42 @@ cũng đặt luôn chương trình phụ trợ cần quyền quản trị vào m
 
 [**`.deb`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab_amd64.deb)
 · [**`.rpm`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-x86_64.rpm)
-· [**`.AppImage`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-linux-x86_64.AppImage)
 · arm64: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab_arm64.deb),
-[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-aarch64.rpm),
-[`.AppImage`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-linux-aarch64.AppImage)
-· headless: [`x86_64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
-[`aarch64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-aarch64.rpm)
+· headless: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless_amd64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless-x86_64.rpm),
+arm64 [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless-aarch64.rpm)
 
-Bốn file, file nào cũng là một bản cài đầy đủ:
+Mỗi họ bản phân phối có hai gói, gói nào cũng là một bản cài đầy đủ:
 
-- **`.deb`** cho Debian, Ubuntu và các bản phái sinh
-- **`.rpm`** cho Fedora, RHEL và openSUSE
-- **`.AppImage`**, không cần trình quản lý gói và không cần quyền root
-- **`-headless.tar.gz`**, bốn chương trình dòng lệnh, không cửa sổ và không phụ thuộc gì thêm
+- **`mixlab`**: MixLab và bốn chương trình dòng lệnh
+- **`mixengine-headless`**: chỉ bốn chương trình dòng lệnh, cho máy chủ hoặc máy không có màn hình
+
+`.deb` dành cho Debian, Ubuntu và các bản phái sinh, `.rpm` dành cho Fedora, RHEL và openSUSE:
 
 ```bash
-sudo dpkg -i mixlab_*_amd64.deb
-sudo rpm -i mixlab-*.x86_64.rpm
-chmod +x mixlab-*-linux-x86_64.AppImage && ./mixlab-*-linux-x86_64.AppImage status
-tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
+sudo apt install ./mixlab_*_amd64.deb
+sudo dnf install ./mixlab-*.x86_64.rpm
 ```
 
-**Cửa sổ cần WebKitGTK 4.1 và glibc 2.35** — Ubuntu 22.04, Debian 12, Fedora 38, openSUSE Leap 15.6
+Hai gói thay thế nhau: cài gói này thì gói kia bị gỡ.
+
+**Các bản phân phối khác không được hỗ trợ.** Arch, NixOS, Gentoo và những bản còn lại không có gói
+ở đây; muốn dùng thì build từ mã nguồn (mục bên dưới).
+
+**Cửa sổ cần WebKitGTK 4.1 và glibc 2.35**: Ubuntu 22.04, Debian 12, Fedora 38, openSUSE Leap 15.6
 trở lên. MixLab là ứng dụng webview, và thư viện nó vẽ lên là thư viện của bản phân phối bạn đang
 dùng: `libwebkit2gtk-4.1-0` trên Debian và Ubuntu, `webkit2gtk4.1` trên Fedora và RHEL,
-`libwebkit2gtk-4_1-0` trên openSUSE. `.deb` và `.rpm` khai báo phụ thuộc này nên trình quản lý gói
-tự kéo về; hai gói đó cũng thêm một mục menu **MixLab** kèm icon.
+`libwebkit2gtk-4_1-0` trên openSUSE. Gói `mixlab` khai báo phụ thuộc này nên trình quản lý gói tự
+kéo về; gói đó cũng thêm một mục menu **MixLab** kèm icon.
 
-**Dòng lệnh thì không cần gì trong số đó.** Bốn chương trình dòng lệnh được build với glibc 2.28,
-nên chạy được trên các bản phân phối hỗ trợ dài hạn mà chúng nhắm tới, chứ không chỉ trên máy mới
-ngang với máy đã build ra chúng — và không cần webview. Máy không có màn hình thì lấy bản headless:
-nó không khai báo phụ thuộc nào cả.
+**Gói headless không cần gì trong số đó.** Bốn chương trình dòng lệnh được build với glibc 2.28, nên
+chạy được trên các bản phân phối hỗ trợ dài hạn mà chúng nhắm tới, và không cần webview.
 
-**AppImage làm được cả hai việc, và mỗi nửa giữ mức sàn của riêng nó.** Chạy kèm tham số thì nó là
-dòng lệnh — `./mixlab-*-linux-x86_64.AppImage status` — trên mọi hệ thống từ glibc 2.28 trở lên.
-Chạy không tham số, hoặc nhấp đúp, thì nó mở MixLab, và MixLab cần đúng những gì đoạn đầu nói. File
-image không mang sẵn WebKitGTK; nếu máy bạn thấp hơn mức sàn của cửa sổ, nó báo đúng tên gói cần
-cài — hiện thành hộp thoại nếu bạn nhấp đúp — còn dòng lệnh vẫn chạy bình thường.
+**Bản cập nhật là gói tiếp theo.** `mix self-update` tải gói về, kiểm tra với bản phát hành đã ký,
+rồi in lệnh cài nó: `sudo apt install …` hoặc `sudo dnf install …`. Trên máy có desktop, nó mở luôn
+gói đó trong trình quản lý phần mềm.
 
 Bản `aarch64` được phát hành bên cạnh bản `x86_64`.
 
@@ -164,8 +163,8 @@ người đóng gói.
 Bên cạnh mỗi file phát hành có hai file đi kèm, và chúng trả lời hai câu hỏi khác nhau.
 
 ```bash
-sha256sum -c mixlab-*-linux-x86_64.tar.gz.sha256
-minisign -Vm mixlab-*-linux-x86_64.tar.gz -P <the key in packaging/updates.pub>
+sha256sum -c mixlab_*_amd64.deb.sha256
+minisign -Vm mixlab_*_amd64.deb -P <the key in packaging/updates.pub>
 ```
 
 File `.sha256` cho bạn biết hai lần tải cùng một file có ra đúng cùng một file hay không. **Nó

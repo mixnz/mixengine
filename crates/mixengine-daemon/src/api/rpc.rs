@@ -854,15 +854,6 @@ async fn call_method(
                     encode_result(&api.elevation.drop_pending(&asked).await.map_err(refused)?)
                 }
 
-                rpc::method::ELEVATION_UPGRADE => {
-                    no_params(params.as_ref())?;
-                    encode_result(
-                        &crate::helper::upgrade(&api.elevation, &api.updates, api.paths())
-                            .await
-                            .map_err(refused)?,
-                    )
-                }
-
                 // Not shipped, and the only way to prove the containment above does anything: a
                 // handler that panics has to be a real handler, because catching a panic raised
                 // anywhere else would prove something about the test and not about the dispatcher.
@@ -3098,6 +3089,141 @@ mod tests {
     }
 
     /// T182, D4. A process running from the home refuses the act before anything is enqueued.
+    /// T182b, D6. The uninstall's prompt carries only what the uninstall asked for: a producer's
+    /// operation waiting in the same queue is not in the batch, and is still waiting afterwards.
+    #[tokio::test]
+    async fn an_uninstall_grants_only_its_own_operations() {
+        let daemon = daemon_on(Arc::new(fixture::Declared(Vec::new())), &[], |home| {
+            mixengine_platform::mock::Host::with_hosts(home, ["127.0.0.1 blog.test"])
+        })
+        .await;
+
+        let producers = mixengine_proto::privileged::PrivilegedOp::FirewallApply {
+            plan: mixengine_proto::privileged::FirewallPlan {
+                ports: vec![8080],
+                label: "MixEngine — a producer".to_owned(),
+            },
+        };
+        daemon
+            .api
+            .elevation
+            .enqueue(&producers)
+            .await
+            .expect("a producer's want");
+
+        // The fixture ships a shim beside its `mixengined` and no helper; a prompt needs one.
+        std::fs::write(
+            daemon
+                .api
+                .paths()
+                .root()
+                .join("installed-beside")
+                .join(format!("mixengine-elevate{}", std::env::consts::EXE_SUFFIX)),
+            b"a helper the mock never runs",
+        )
+        .expect("a helper beside the program");
+
+        let started: JobSummary = daemon
+            .expect(
+                rpc::method::DAEMON_UNINSTALL,
+                serde_json::json!({ "keep_home": true, "grant": true }),
+            )
+            .await;
+        let _ = finished_job(&daemon, started).await;
+
+        let raised = daemon.host.prompts_raised();
+        let body = &raised.last().expect("the uninstall raised a prompt").body;
+        assert!(body.contains("hosts-apply"), "{body}");
+        assert!(
+            !body.contains("firewall-apply"),
+            "a producer's operation rode the uninstall's prompt: {body}"
+        );
+
+        let pending = daemon
+            .api
+            .elevation
+            .status()
+            .await
+            .expect("a queue")
+            .pending;
+        assert!(
+            pending.iter().any(|waiting| waiting.op == producers),
+            "{pending:?}"
+        );
+    }
+
+    /// T182b, D6. A declined uninstall leaves the queue as it found it — including a site's hosts
+    /// block, which the uninstall's own empty block had displaced under the same key.
+    #[tokio::test]
+    async fn a_declined_uninstall_puts_back_what_it_displaced() {
+        let daemon = daemon_on(Arc::new(fixture::Declared(Vec::new())), &[], |home| {
+            mixengine_platform::mock::Host::with_hosts(home, ["127.0.0.1 blog.test"]).declining()
+        })
+        .await;
+
+        // Before the site's want, as on a real machine: the helper is there from the install.
+        std::fs::write(
+            daemon
+                .api
+                .paths()
+                .root()
+                .join("installed-beside")
+                .join(format!("mixengine-elevate{}", std::env::consts::EXE_SUFFIX)),
+            b"a helper the mock never runs",
+        )
+        .expect("a helper beside the program");
+
+        let sites = mixengine_proto::privileged::PrivilegedOp::hosts_apply([
+            mixengine_proto::privileged::HostEntry {
+                address: "127.0.0.1".parse().expect("an address"),
+                domain: "blog.test".to_owned(),
+            },
+            mixengine_proto::privileged::HostEntry {
+                address: "127.0.0.1".parse().expect("an address"),
+                domain: "shop.test".to_owned(),
+            },
+        ]);
+        daemon
+            .api
+            .elevation
+            .enqueue(&sites)
+            .await
+            .expect("a site's want");
+        let before = daemon
+            .api
+            .elevation
+            .status()
+            .await
+            .expect("a queue")
+            .pending;
+
+        let started: JobSummary = daemon
+            .expect(
+                rpc::method::DAEMON_UNINSTALL,
+                serde_json::json!({ "keep_home": true, "grant": true }),
+            )
+            .await;
+        let _ = finished_job(&daemon, started).await;
+
+        assert_eq!(
+            daemon.host.prompts_raised().len(),
+            1,
+            "the prompt was raised, and declined"
+        );
+
+        let after = daemon
+            .api
+            .elevation
+            .status()
+            .await
+            .expect("a queue")
+            .pending;
+        let ops = |queue: &[mixengine_proto::PendingOp]| -> Vec<mixengine_proto::privileged::PrivilegedOp> {
+            queue.iter().map(|waiting| waiting.op.clone()).collect()
+        };
+        assert_eq!(ops(&after), ops(&before), "{after:?}");
+    }
+
     #[tokio::test]
     async fn a_process_in_the_home_refuses_the_uninstall() {
         let daemon = undeclared().await;
@@ -4430,11 +4556,16 @@ mod tests {
     ) -> (Daemon, mixengine_testkit::MockRegistry) {
         let registry =
             mixengine_testkit::MockRegistry::start(&serde_json::json!({ "schema": 1 })).await;
-        let packed =
-            mixengine_testkit::Packed::one_file("mixlab-99.0.0-macos-universal.pkg", PKG_BYTES);
+        let packed = mixengine_testkit::Packed::one_file(
+            "mixengine-99.0.0-macos-universal-headless.pkg",
+            PKG_BYTES,
+        );
         let url = registry.publish_asset(&packed.path(), packed.bytes.clone());
+        // Headless, because the mock host has no window installed: the updater hands a machine the
+        // flavour it has (T182b, D5).
         let row = serde_json::json!({
             "os": std::env::consts::OS, "arch": std::env::consts::ARCH, "kind": "pkg",
+            "flavour": "headless",
             "url": url, "size": PKG_BYTES.len(), "sha256": sha256.unwrap_or(packed.sha256),
         });
 
@@ -4505,6 +4636,10 @@ mod tests {
             PKG_BYTES
         );
         assert!(handed.command.contains(&handed.package), "{handed:?}");
+        assert!(
+            handed.opened,
+            "the mock has an installer to open: {handed:?}"
+        );
         assert!(
             !daemon.api.shutdown.token().is_cancelled(),
             "hand_over never ends the daemon"

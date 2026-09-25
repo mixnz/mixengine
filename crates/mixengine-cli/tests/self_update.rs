@@ -36,8 +36,8 @@ const OFFERED: &str = "99.0.0";
 /// The three names a release is made of.
 const BINARIES: [&str; 3] = ["mix", "mixengined", "mixengine-elevate"];
 
-/// What the helper's stand-in holds, so a test can prove it was not replaced.
-const HELPER_STUB: &[u8] = b"not the elevated helper, and not to be replaced";
+/// What the helper's stand-in holds: this test installs no privileged binary anywhere.
+const HELPER_STUB: &[u8] = b"not the elevated helper, and replaced by the update";
 
 /// A copy of this build, installed where a test may replace it.
 struct Installed {
@@ -54,9 +54,9 @@ struct Installed {
 impl Installed {
     /// Copy `mix` and `mixengined` out of `target/`, and put a stand-in beside them for the helper.
     ///
-    /// **A stand-in and not the real helper**, because what is being asserted about it is that
-    /// nothing touched it: a byte-for-byte comparison against a file whose contents are known is the
-    /// cheapest form of that, and this test has no business installing a privileged binary anywhere.
+    /// **A stand-in and not the real helper**: the swap replaces it like the others (T182b, D4), which
+    /// the daemon's own report says, and this test has no business installing a privileged binary
+    /// anywhere.
     fn here() -> Self {
         let root = tempfile::tempdir().expect("a temporary directory");
         let directory = root.path().join("installed");
@@ -267,8 +267,6 @@ async fn an_update_replaces_the_binaries_relaunches_and_starts_what_was_running(
     let started = installed.mix(&home, &["service", "start", "fakeservice@main", "--json"]);
     assert!(started.status.success(), "{}", stdout(&started));
 
-    let helper_before = installed.contents("mixengine-elevate");
-
     let updated = installed.mix(&home, &["self-update", "--yes", "--json"]);
     assert!(
         updated.status.success(),
@@ -295,37 +293,23 @@ async fn an_update_replaces_the_binaries_relaunches_and_starts_what_was_running(
 
     assert_eq!(applied["from"], env!("CARGO_PKG_VERSION"), "{applied}");
     assert_eq!(applied["to"], OFFERED, "{applied}");
+    // T182b, D4: the helper beside the program is swapped like every other binary, so it is
+    // current when the daemon next installs the privileged copy from it.
     assert_eq!(
         applied["replaced"],
-        serde_json::json!(["mix", "mixengined"]),
-        "the swap replaced something other than the two binaries an update replaces: {applied}"
+        serde_json::json!(["mix", "mixengine-elevate", "mixengined"]),
+        "the swap replaced something other than the binaries an update replaces: {applied}"
     );
-    assert_eq!(
-        applied["kept"],
-        serde_json::json!(["mixengine-elevate"]),
+    assert!(
+        applied["kept"]
+            .as_array()
+            .is_none_or(|kept| kept.is_empty()),
         "{applied}"
     );
     assert_eq!(
         applied["restarting"],
         serde_json::json!(["fakeservice@main"]),
         "the update did not record the service it stopped: {applied}"
-    );
-
-    // **And the helper did not.** `docs/features/updates.md`'s single most important rule, as the
-    // one assertion that can be made about it from outside: an auto-updated binary that runs as
-    // root, with no OS signature, is a local privilege-escalation vector — so T88a replaces it,
-    // inside an elevation prompt, and this task does not.
-    assert_eq!(
-        installed.contents("mixengine-elevate"),
-        helper_before,
-        "the elevated helper was replaced by an ordinary update"
-    );
-    assert!(
-        !installed
-            .directory
-            .join(format!("{}{}", named("mixengine-elevate"), ".old"))
-            .exists(),
-        "the helper was renamed out of the way, which is a swap that should never have started"
     );
 
     // **A daemon is answering again**, and it is the one `mix` started rather than the one that was

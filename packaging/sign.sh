@@ -97,15 +97,20 @@ fi
 # One rule and not a special case: every artifact gets `<name> <version> <os> <arch>` where `<name>`
 # is what the file is called. For the helper that name *is* `mixengine-elevate`, which is what makes
 # the stamp parse; for everything else the fields are there for a person reading `minisign -V`.
+#
+# **The helper's stamp carries the helper's own version** (T182b, D1), which is what its asset is
+# named by and what the installed helper compares a replacement against — not the release's.
+helper_version="$(mix_helper_version)"
+
 comment_for() {
   local base rest
   base="$(basename "$1")"
 
   case "$base" in
-    mixengine-elevate-"$version"-*)
-      rest="${base#mixengine-elevate-"$version"-}"
+    mixengine-elevate-"$helper_version"-*)
+      rest="${base#mixengine-elevate-"$helper_version"-}"
       rest="${rest%.exe}"
-      echo "mixengine-elevate $version ${rest%%-*} ${rest#*-}"
+      echo "mixengine-elevate $helper_version ${rest%%-*} ${rest#*-}"
       ;;
     *) echo "mixengine $version $base" ;;
   esac

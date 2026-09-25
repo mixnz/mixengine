@@ -170,6 +170,11 @@ pub struct UpdateHandedOver {
     /// not at this Mac's screen: over SSH, the installer opens on the desktop anyway (the T88f
     /// readings, M4). Written by the daemon so no client composes it.
     pub command: String,
+
+    /// Whether a software installer opened on this machine's screen — roadmap task **T182b**, D5.
+    /// `false` on a Linux machine with no desktop session: the package is verified and waiting,
+    /// and [`UpdateHandedOver::command`] is the only way to install it.
+    pub opened: bool,
 }
 
 /// What `update.finish` takes: nothing — roadmap task **T88f**.
@@ -358,7 +363,8 @@ mod tests {
         let handed: UpdateHandedOver = serde_json::from_value(serde_json::json!({
             "version": "0.0.9",
             "package": "/x/mixlab-0.0.9-macos-universal.pkg",
-            "command": "sudo installer -pkg '/x/mixlab-0.0.9-macos-universal.pkg' -target /"
+            "command": "sudo installer -pkg '/x/mixlab-0.0.9-macos-universal.pkg' -target /",
+            "opened": true
         }))
         .expect("a handover reads");
 

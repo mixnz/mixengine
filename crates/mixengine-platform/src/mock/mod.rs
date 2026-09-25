@@ -376,6 +376,18 @@ impl Host {
         }
     }
 
+    /// This host, with every prompt declined — for the fixtures that need a machine *and* a no.
+    ///
+    /// Roadmap task T182b: a declined uninstall on a machine that holds a hosts block is the case
+    /// that has to leave the queue exactly as it found it.
+    #[must_use]
+    pub fn declining(self) -> Self {
+        Self {
+            prompts: elevation::Prompts::declining(),
+            ..self
+        }
+    }
+
     /// A host whose hosts file cannot be read, with `reason`.
     ///
     /// **Not a reason to refuse a site.** The helper is the authority on what is in that file, so a

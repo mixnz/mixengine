@@ -4,7 +4,7 @@ slug = "updating"
 order = 12
 summary = "Cập nhật do bạn quyết, có kiểm tra chữ ký, và có chạy thử trước khi thay bất cứ thứ gì. Riêng một chương trình cố ý không bao giờ được thay theo đường này."
 translation_of = "en/updating.md"
-source_sha256 = "0c946716d0d12b04cdc752b9f40e2ad582410f1af0c74e88b7422df3affdb144"
+source_sha256 = "b03ced7dc13f41ca00d41656283a6b63004fb388ddd8d377353862d3f11c2be8"
 +++
 
 # Giữ MixLab luôn mới
@@ -46,24 +46,15 @@ Theo thứ tự, và không bước nào bỏ qua được:
 4. Những gì đang chạy được dừng, các file thực thi được thay, và daemon thoát.
 5. `mix` khởi động daemon mới, và daemon khởi động lại service của bạn.
 
-## Chương trình duy nhất không bao giờ bị đụng tới
+## Chương trình phụ trợ đặc quyền
 
-`mixengine-elevate` chạy với quyền quản trị, nên thay nó là một hành động đặc quyền.
-`mix self-update` cố ý để nguyên nó.
+`mixengine-elevate` chạy với quyền quản trị, nên thay nó cần bạn cho phép. Nó có số phiên bản
+riêng, chỉ đổi khi chính nó thay đổi, nên phần lớn các bản cập nhật để nguyên nó và không hỏi gì.
 
-```bash
-mix elevation upgrade
-```
-
-Đó là hành động riêng, có chủ đích. Lệnh này tải chương trình phụ trợ mà bản phát hành này công
-bố, kiểm tra chữ ký của MixLab trên đó, chạy thử một lần để chắc nó khởi động được, rồi đưa bản
-thay thế vào hàng đợi. **Lệnh này không cài gì cả**: `mix elevation grant` mới là lệnh hiện hộp
-thoại xin quyền, và chương trình phụ trợ đang cài sẽ tự kiểm tra chữ ký thêm lần nữa trước khi cho
-phép bất cứ gì ghi đè lên nó.
-
-Trong lúc đó, bản cũ và bản mới cùng tồn tại an toàn. Daemon và chương trình phụ trợ thỏa thuận
-phiên bản giao thức khi nói chuyện với nhau. Chương trình phụ trợ cũ vẫn phục vụ các thao tác nó
-biết, trong khi MixEngine nhắc bạn nâng cấp nó.
+Khi một bản cập nhật có đổi nó, daemon mới hỏi quyền một lần, ngay lần khởi động đầu tiên. Chương
+trình phụ trợ đang cài tự kiểm tra chữ ký của MixLab trên bản thay thế trước khi cho phép ghi đè
+lên chính nó. Nếu bạn từ chối thì không hỏng gì: bản cũ vẫn phục vụ mọi việc nó biết, và bản thay
+thế đi kèm lần xin quyền kế tiếp mà MixLab vốn cũng phải hỏi.
 
 ## Khi bạn cài MixLab trên Mac bằng file `.pkg`
 
@@ -79,15 +70,19 @@ thêm đường dẫn file đã tải và lệnh `sudo installer` để cài fil
 
 Bản đầu tiên có tính năng này thì vẫn phải cài tay một lần, như mọi file `.pkg`.
 
-## Khi MixLab được cài bằng trình quản lý gói
+## Trên Linux
 
-Trên Linux, `mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ
-không phải vô ích: bản cài bằng `apt` hay `dnf` thuộc về trình quản lý gói đó. Thay file sau lưng
-nó sẽ khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn
-đã cài.
+Bản cài từ `.deb` hoặc `.rpm` thuộc về `apt` hoặc `dnf`, nên MixLab không tự thay file của nó.
+`mix self-update` tải gói tiếp theo cùng loại, kiểm tra với bản phát hành đã ký, rồi in lệnh cài:
 
-Bản zip portable, AppImage, bộ cài Windows theo người dùng và bản build từ mã nguồn đều cập nhật
-bình thường bằng `mix self-update`.
+```bash
+sudo apt install '<đường dẫn nó in ra>/mixlab_0.0.9-1_amd64.deb'
+```
+
+Trên máy có desktop, nó mở luôn gói đó trong trình quản lý phần mềm. Cài xong thì chạy
+`mix self-update --finish`.
+
+Bộ cài Windows được `mix self-update` cập nhật tại chỗ.
 
 ## Phiên bản
 

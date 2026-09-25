@@ -68,17 +68,21 @@ is touched.
 
 `mixengine-elevate` itself has to live somewhere you cannot write to — a program that runs as an
 administrator and sits in a directory any process could overwrite is not a security boundary. So the
-first privileged thing MixLab ever does is put the helper in place. Four of the ways of
-installing MixLab run entirely as you (the Windows installer, the portable zip, the AppImage, and
-building from source), which is why this cannot be the installer's job. Where a `.deb`, an `.rpm` or
+first privileged thing MixLab ever does is put the helper in place. Two of the ways of installing
+MixLab run entirely as you (the Windows installer and building from source), which is why this
+cannot be the installer's job. Where a `.deb`, an `.rpm` or
 a `.pkg` has already placed it, MixLab notices and asks for nothing.
 
 ### Replacing the privileged helper
 
-Updates never touch it. `mix self-update` replaces the daemon and the client and deliberately leaves
-`mixengine-elevate` exactly as it was; `mix elevation upgrade` is the separate, deliberate act that
-fetches a new one, and the helper already installed checks MixLab's signature on the replacement
-before it allows itself to be overwritten.
+You never have to. The helper has a version of its own, and it changes only when the helper itself
+does, which is rare. When MixLab starts and finds an older helper installed, it replaces it at the
+next permission prompt, the one MixLab asks for anyway. After an update that changed the helper,
+MixLab asks for that prompt itself, once.
+
+The installed helper checks MixLab's signature on its replacement before it lets itself be
+overwritten. A helper too old to do that is replaced by the copy that came with this release, the
+same way a first install puts one in place.
 
 ## One prompt, not six
 

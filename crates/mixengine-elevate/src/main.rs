@@ -120,7 +120,7 @@ fn run() -> Result<(), Failure> {
 
     let response = PrivilegedResponse {
         version: PROTOCOL_VERSION,
-        elevate_version: env!("CARGO_PKG_VERSION").to_owned(),
+        elevate_version: mixengine_proto::privileged::HELPER_VERSION.to_owned(),
         nonce: accepted.request.nonce.clone(),
         elevated,
         supported_ops: PrivilegedOp::ALL

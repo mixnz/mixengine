@@ -145,9 +145,9 @@ pub struct InstalledHelper {
     /// What to do about it being older than this daemon, when it is.
     ///
     /// Rendered here rather than by a client, on [`PendingOp::description`]'s rule and for its
-    /// reason: what to do differs by *which* old helper it is — one that can replace itself is
-    /// pointed at `mix elevation upgrade` and one that cannot is pointed at the installer — and a
-    /// client deciding that would be a client deciding what runs as root.
+    /// reason: a client deciding what to say about the helper would be a client deciding what runs
+    /// as root. Since T182b there is nothing for a person to run: the daemon replaces an older
+    /// helper at the next prompt, and this says so.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upgrade: Option<String>,
 }
@@ -197,63 +197,6 @@ pub struct GrantOutcome {
     /// ([ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md)).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub problems: Vec<String>,
-}
-
-/// `elevation.upgrade` — what fetching the published privileged helper did — roadmap task **T88a**.
-///
-/// **It queues rather than prompts.** `elevation.grant` is deliberately the only door into an
-/// elevation prompt, and a second one would be a second place two concurrent prompts could come
-/// from. So this leaves a row and says which command applies it, which is the idiom every producer
-/// in this product already follows — creating a site enqueues a hosts change and tells you to grant
-/// it.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
-pub struct HelperUpgrade {
-    /// What is installed now, when the handshake could read it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub installed: Option<String>,
-
-    /// What the published release offers for this machine, when it offers one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub offered: Option<String>,
-
-    /// What happened.
-    ///
-    /// `flatten`, on [`GrantOutcome::outcome`]'s precedent: one object with one discriminator,
-    /// rather than a wrapper a client unwraps for this type and for nothing else — and it puts the
-    /// two `reason`s on the top level, where they read as the sentences they are.
-    #[serde(flatten)]
-    pub outcome: HelperUpgradeOutcome,
-
-    /// The queue afterwards, so a client prints what will be asked for without calling again.
-    pub pending: Vec<PendingOp>,
-}
-
-/// What `elevation.upgrade` did.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "outcome", rename_all = "kebab-case")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
-pub enum HelperUpgradeOutcome {
-    /// Downloaded, checked, proved to run on this machine, and queued.
-    Staged,
-
-    /// The helper installed here is this release's, or newer.
-    UpToDate,
-
-    /// The installed helper is from before MixEngine could replace one, so nothing here can.
-    ///
-    /// Its own outcome rather than a failure: the machine is working, the helper is serving every
-    /// operation it knows, and what a person needs is the sentence saying what *does* replace it.
-    Unsupported {
-        /// What replaces it instead.
-        reason: String,
-    },
-
-    /// The feed, the release or this machine got in the way.
-    Unavailable {
-        /// Which of them, in words.
-        reason: String,
-    },
 }
 
 /// `elevation.drop` — forget one operation, or all of them.
@@ -447,51 +390,6 @@ mod tests {
 
         let encoded = serde_json::to_value(&helper).unwrap();
         assert!(encoded.get("upgrade").is_none(), "{encoded}");
-    }
-
-    /// T88a. Flattened on [`GrantOutcome`]'s precedent: one object with one discriminator, so the
-    /// reason of the two outcomes that carry one reads as the sentence it is.
-    #[test]
-    fn a_helper_upgrade_is_one_flat_object() {
-        let report = HelperUpgrade {
-            installed: Some("0.1.0".to_owned()),
-            offered: Some("0.2.0".to_owned()),
-            outcome: HelperUpgradeOutcome::Unsupported {
-                reason: "the helper installed here is from before MixEngine could replace one"
-                    .to_owned(),
-            },
-            pending: Vec::new(),
-        };
-
-        let encoded = serde_json::to_value(&report).unwrap();
-        assert_eq!(encoded["outcome"], "unsupported");
-        assert!(encoded["reason"].as_str().unwrap().contains("replace"));
-
-        assert_eq!(
-            serde_json::from_value::<HelperUpgrade>(encoded).unwrap(),
-            report
-        );
-    }
-
-    /// The ordinary answer puts no nulls on the wire, and no `reason` where there is nothing to say.
-    #[test]
-    fn a_staged_upgrade_says_what_is_waiting_and_nothing_else() {
-        let report = HelperUpgrade {
-            installed: Some("0.1.0".to_owned()),
-            offered: Some("0.2.0".to_owned()),
-            outcome: HelperUpgradeOutcome::Staged,
-            pending: vec![waiting()],
-        };
-
-        let encoded = serde_json::to_value(&report).unwrap();
-        assert_eq!(encoded["outcome"], "staged");
-        assert!(encoded.get("reason").is_none(), "{encoded}");
-        assert_eq!(encoded["pending"].as_array().unwrap().len(), 1);
-
-        assert_eq!(
-            serde_json::from_value::<HelperUpgrade>(encoded).unwrap(),
-            report
-        );
     }
 
     #[test]

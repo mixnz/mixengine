@@ -84,15 +84,14 @@ export MIX_INSTALL_WINDOWS
 MIX_INSTALL_MACOS=/usr/local/bin
 export MIX_INSTALL_MACOS
 
-# What the `.deb` and the `.rpm` write, the window included. The AppImage and the tarball install
-# nowhere at all: their programs are found beside the one that is running.
+# What the `.deb` and the `.rpm` write, the window included. They are the only Linux downloads
+# since T182b, D5.
 MIX_INSTALL_LINUX=/usr/bin
 export MIX_INSTALL_LINUX
 
-# The oldest glibc the window runs on, and the WebKitGTK soname it links — T105a, ADR 0028. The
-# AppImage does not carry WebKitGTK, so both of these are a promise made to a person rather than an
-# implementation detail: `packaging/linux/window-floor.sh` holds the binary to them on every Linux
-# build leg, `packaging/linux/AppRun` says which of them a machine failed, and
+# The oldest glibc the window runs on, and the WebKitGTK soname it links — T105a, ADR 0028. Both
+# are a promise made to a person rather than an implementation detail:
+# `packaging/linux/window-floor.sh` holds the binary to them on every Linux build leg, and
 # `crates/mixengine-core/tests/packaging.rs` holds both install pages to them.
 #
 # **2.35 is the glibc of `ubuntu-22.04`, the runner both Linux legs build the window on.** It cannot
@@ -103,8 +102,7 @@ export MIX_INSTALL_LINUX
 # enterprise Linux 9 is at 2.34 and has no WebKitGTK 4.1 at all.
 #
 # The command line is unaffected by either. The four binaries keep the container's glibc 2.28 floor
-# in every artifact, the AppImage included, which is why one file can be below the window's floor and
-# still be a complete MixEngine.
+# in every artifact, which is why the headless packages install below the window's floor.
 MIX_WINDOW_GLIBC=2.35
 export MIX_WINDOW_GLIBC
 
@@ -125,6 +123,14 @@ mix_version() {
   sed -n '/^\[workspace\.package\]/,/^\[/p' "$MIX_ROOT/Cargo.toml" \
     | sed -n 's/^version = "\(.*\)"$/\1/p' \
     | head -1
+}
+
+# The privileged helper's own version, which is not the release's — roadmap task T182b, D1. Read out
+# of the one constant both the helper and the daemon compile in, so the asset's name and its signed
+# stamp say what the helper itself will answer a probe with.
+mix_helper_version() {
+  sed -n 's/^pub const HELPER_VERSION: &str = "\(.*\)";$/\1/p' \
+    "$MIX_ROOT/crates/mixengine-proto/src/privileged.rs" | head -1
 }
 
 # The same version, spelled the way a native Linux package manager can order it.
@@ -319,7 +325,7 @@ mix_publish_helper() {
     *.exe) suffix=".exe" ;;
   esac
 
-  local name="mixengine-elevate-$(mix_version)-$os-$arch$suffix"
+  local name="mixengine-elevate-$(mix_helper_version)-$os-$arch$suffix"
   cp "$source" "$MIX_OUT/dist/$name"
   mix_checksum "$MIX_OUT/dist/$name"
   echo "$MIX_OUT/dist/$name"

@@ -37,19 +37,18 @@ use mixengine_proto::{
     ElevationStatus, Enforcement, Execution, ExtensionCatalogue, ExtensionChange,
     ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan, ExtensionRemoval,
     ExtensionSource, FilesystemReach, FrontEndOutcome, FrontEndReport, GrantOutcome, Handshake,
-    HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport, IdleSource,
-    InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState, JobSummary, Launch, Linkage,
-    Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory, NetworkReach, Outcome,
-    PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease, PackageRemoval,
-    PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome, Priority,
-    ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim, Removal,
-    RepairReport, Requirement, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList,
-    RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId,
-    ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk,
-    SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing,
-    StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust, UninstallOutcome,
-    UninstallReport, Unusable, UpdateApplied, UpdateHandedOver, UpdatePlacement, UpdateStatus,
-    Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
+    IdleExemption, IdleProbe, IdleReport, IdleSource, InstalledExtensions, IssueOutcome, JobList,
+    JobOutcome, JobState, JobSummary, Launch, Linkage, Made, MemoryMeasure, MemoryWatchdog,
+    MetricsFrame, MetricsHistory, NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue,
+    PackageList, PackageRelease, PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction,
+    PlanStep, PoolOutcome, Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval,
+    RecipeAddition, Reclaim, Removal, RepairReport, Requirement, ResolvedRuntime, RotateOutcome,
+    RuntimeCatalogue, RuntimeList, RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary,
+    ServiceCreation, ServiceId, ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState,
+    ServiceSummary, ServiceWalk, SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner,
+    SiteRemoval, SiteSharing, StateReason, StepResult, StorageChoice, StorageReport, Timestamp,
+    Trust, UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdateHandedOver,
+    UpdatePlacement, UpdateStatus, Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -608,18 +607,29 @@ pub(crate) fn update_status(status: &UpdateStatus) -> String {
     rendered
 }
 
-/// What `mix self-update` prints once the `.pkg` is open in Installer.app — roadmap task **T88f**.
+/// What `mix self-update` prints once the package is handed over — roadmap tasks **T88f** and
+/// **T182b** (D5).
 ///
 /// **The path and the command every time**, not only when opening failed. Over SSH, `open`
 /// succeeds and Installer.app comes up on the Mac's own screen, which the person at this prompt may
-/// not be looking at (the T88f readings, M4). Both are the daemon's, printed unchanged.
+/// not be looking at (the T88f readings, M4). Both are the daemon's, printed unchanged. A Linux
+/// machine with no desktop session opens nothing, and the command is then the only way.
 pub(crate) fn update_handed_over(handed: &UpdateHandedOver) -> String {
-    format!(
-        "Installer.app is open on this Mac. when it is done: mix self-update --finish\n  \
-         package   {}\n  \
-         or run    {}\n",
-        handed.package, handed.command
-    )
+    if handed.opened {
+        format!(
+            "the installer is open. when it is done: mix self-update --finish\n  \
+             package   {}\n  \
+             or run    {}\n",
+            handed.package, handed.command
+        )
+    } else {
+        format!(
+            "the update is downloaded. install it, then run: mix self-update --finish\n  \
+             package   {}\n  \
+             run       {}\n",
+            handed.package, handed.command
+        )
+    }
 }
 
 /// What an update did, printed while the daemon that did it is exiting — roadmap task **T88**.
@@ -1697,45 +1707,6 @@ pub(crate) fn elevation_status(status: &ElevationStatus) -> String {
         ),
 
         (None, true) => {}
-    }
-
-    rendered
-}
-
-/// What `mix elevation upgrade` did — roadmap task **T88a**.
-///
-/// Four outcomes and four sentences. The `Staged` one names `mix elevation grant`, because nothing
-/// has been installed and that is the command that asks; the other three are the end of it.
-pub(crate) fn helper_upgrade(report: &HelperUpgrade) -> String {
-    let mut rendered = match &report.outcome {
-        HelperUpgradeOutcome::Staged => format!(
-            "the privileged helper {} is downloaded, checked and ready to install\n",
-            report
-                .offered
-                .as_deref()
-                .unwrap_or("this release publishes")
-        ),
-        HelperUpgradeOutcome::UpToDate => format!(
-            "the privileged helper on this machine is {}, which is what this release publishes\n",
-            report.installed.as_deref().unwrap_or("current")
-        ),
-        HelperUpgradeOutcome::Unsupported { reason }
-        | HelperUpgradeOutcome::Unavailable { reason } => format!("{reason}\n"),
-    };
-
-    if let Some(installed) = &report.installed {
-        rendered.push_str(&format!("  installed {installed}\n"));
-    }
-
-    if let Some(offered) = &report.offered {
-        rendered.push_str(&format!("  published {offered}\n"));
-    }
-
-    if matches!(report.outcome, HelperUpgradeOutcome::Staged) {
-        rendered.push_str(
-            "\n`mix elevation grant` asks for permission and installs it; nothing has changed \
-             yet\n",
-        );
     }
 
     rendered
@@ -5014,11 +4985,33 @@ mod tests {
             version: "0.0.9".to_owned(),
             package: package.to_owned(),
             command: format!("sudo installer -pkg '{package}' -target /"),
+            opened: true,
         });
 
         assert!(rendered.contains(package), "{rendered}");
         assert!(rendered.contains("sudo installer -pkg"), "{rendered}");
         assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+    }
+
+    /// T182b, D5. A Linux machine with no desktop session opens nothing: the command is printed as
+    /// the step to take, and nothing claims an installer is open.
+    #[test]
+    fn a_handover_with_nothing_opened_prints_the_command_as_the_way() {
+        let package = "/home/x/.local/share/mixengine/cache/updates/0.0.9/\
+                       mixengine-headless_0.0.9-1_amd64.deb";
+        let rendered = update_handed_over(&mixengine_proto::UpdateHandedOver {
+            version: "0.0.9".to_owned(),
+            package: package.to_owned(),
+            command: format!("sudo apt install '{package}'"),
+            opened: false,
+        });
+
+        assert!(
+            rendered.contains(&format!("sudo apt install '{package}'")),
+            "{rendered}"
+        );
+        assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+        assert!(!rendered.contains("is open"), "{rendered}");
     }
 
     #[test]
@@ -5716,47 +5709,6 @@ mod tests {
         });
 
         assert!(!rendered.contains("helper"), "{rendered}");
-    }
-
-    /// T88a. A staged upgrade has installed nothing, so the screen has to say what does.
-    #[test]
-    fn a_staged_helper_upgrade_names_the_command_that_installs_it() {
-        let rendered = helper_upgrade(&HelperUpgrade {
-            installed: Some("0.1.0".to_owned()),
-            offered: Some("0.2.0".to_owned()),
-            outcome: HelperUpgradeOutcome::Staged,
-            pending: Vec::new(),
-        });
-
-        assert!(rendered.contains("0.2.0"), "{rendered}");
-        assert!(rendered.contains("mix elevation grant"), "{rendered}");
-        assert!(rendered.contains("nothing has changed"), "{rendered}");
-    }
-
-    /// The three that are the end of it print the reason and never the command — offering
-    /// `mix elevation grant` where there is nothing queued would be offering a refusal.
-    #[test]
-    fn an_upgrade_that_went_nowhere_does_not_offer_a_grant() {
-        for outcome in [
-            HelperUpgradeOutcome::UpToDate,
-            HelperUpgradeOutcome::Unsupported {
-                reason: "what replaces it is running this release's installer".to_owned(),
-            },
-            HelperUpgradeOutcome::Unavailable {
-                reason: "the published release has no privileged helper for this machine"
-                    .to_owned(),
-            },
-        ] {
-            let rendered = helper_upgrade(&HelperUpgrade {
-                installed: Some("0.1.0".to_owned()),
-                offered: None,
-                outcome,
-                pending: Vec::new(),
-            });
-
-            assert!(!rendered.contains("mix elevation grant"), "{rendered}");
-            assert!(rendered.contains("0.1.0"), "{rendered}");
-        }
     }
 
     /// A machine that cannot prompt has to print the reason, because on Linux the reason is the

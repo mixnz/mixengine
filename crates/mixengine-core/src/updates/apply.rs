@@ -14,14 +14,15 @@
 //! is running from. This one replaces the binaries of the process performing it, which is why it is
 //! rename-then-write and why it undoes itself.
 //!
-//! # What is never swapped
+//! # The helper beside the program is swapped too
 //!
-//! `mixengine-elevate`. It is installed once to a root-owned location, and replacing it needs its
-//! own elevation prompt with a minisign check performed *inside* the elevated context — roadmap task
-//! **T88a**. `docs/features/updates.md` calls this the single most important rule on the page: an
-//! auto-updated binary that runs as root, with no OS signature, is a local privilege-escalation
-//! vector. Here it is one name in one constant, [`KEPT`], and a test that a payload containing the
-//! helper does not get to replace it.
+//! `mixengine-elevate` beside the program is the copy the daemon installs a privileged helper from,
+//! and it sits in a directory this account already writes, so skipping it protected nothing and left
+//! the daemon an old copy to install — roadmap task **T182b**, D4. The *privileged* copy is somewhere
+//! only an administrator can write, never under the install directory, so no swap can reach it: the
+//! daemon replaces that one through a prompt, with the signature checked inside the elevated context
+//! (T88a). `docs/features/updates.md`'s rule, that an auto-updated binary running as root is a local
+//! privilege-escalation vector, holds because of where that copy lives, not because of a name here.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -29,9 +30,6 @@ use std::path::{Path, PathBuf};
 use crate::index::Artifact;
 use crate::install::{Installer, NotAnArchive, SmokeTest, Watcher};
 use crate::{Error, Result};
-
-/// The binary an update never replaces.
-pub const KEPT: &str = "mixengine-elevate";
 
 /// The executable the smoke test runs, by the name the payload publishes it under.
 ///
@@ -71,9 +69,8 @@ pub struct Swapped {
 
     /// The binaries the payload carried that this update deliberately did not replace.
     ///
-    /// [`KEPT`] always, when the payload has it; and anything else the payload carries that this
-    /// install does not have — which is how a release that gains a binary behaves against an
-    /// install predating it.
+    /// Anything the payload carries that this install does not have — which is how a release
+    /// that gains a binary behaves against an install predating it.
     pub kept: Vec<String>,
 }
 
@@ -136,12 +133,11 @@ pub async fn stage<W: Watcher>(
 /// contents and not a list compiled into this binary, which is what lets an installed 0.2.0 take a
 /// 0.3.0 payload that carries a binary 0.2.0 never had.
 ///
-/// Three rules, in this order, per name:
+/// Two rules, in this order, per name:
 ///
-/// 1. [`KEPT`] is skipped and reported as kept.
-/// 2. A name this install does not have is skipped and reported as kept. Nothing is *added* by an
+/// 1. A name this install does not have is skipped and reported as kept. Nothing is *added* by an
 ///    update: a binary appearing for the first time is an install's business, not an update's.
-/// 3. Otherwise `rename(target, target.old)` and then copy the staged file to `target`.
+/// 2. Otherwise `rename(target, target.old)` and then copy the staged file to `target`.
 ///
 /// **Rename rather than overwrite**, which is what makes this work at all on Windows: the running
 /// `mix.exe` is one of the files being replaced, an open image cannot be deleted or written, and it
@@ -167,11 +163,6 @@ pub fn swap(
     let mut renamed: Vec<(PathBuf, PathBuf)> = Vec::new();
 
     for (name, relative) in provides {
-        if name == KEPT {
-            swapped.kept.push(name.clone());
-            continue;
-        }
-
         let target = directory.join(installed_name(name));
 
         if !target.exists() {
@@ -470,21 +461,24 @@ mod tests {
         );
     }
 
-    /// `docs/features/updates.md`'s single most important rule, as a test: an auto-updated binary
-    /// that runs as root, with no OS signature, is a local privilege-escalation vector.
+    /// T182b, D4. The helper beside the program is swapped like every other binary: it is the copy
+    /// the daemon installs from, and an update that left it behind would leave the daemon nothing
+    /// current to install. The *privileged* copy is never under the install directory, so no swap
+    /// can reach it.
     #[test]
-    fn the_elevated_helper_is_never_replaced_and_is_reported_as_kept() {
-        let (_root, staged, installed) = layout(&["mix", KEPT], &["mix", KEPT]);
+    fn the_helper_beside_the_program_is_swapped_like_every_other_binary() {
+        let helper = "mixengine-elevate";
+        let (_root, staged, installed) = layout(&["mix", helper], &["mix", helper]);
 
-        let swapped = swap(&staged, &provides(&["mix", KEPT]), &installed).expect("a swap");
+        let swapped = swap(&staged, &provides(&["mix", helper]), &installed).expect("a swap");
 
-        assert_eq!(swapped.kept, vec![KEPT.to_owned()]);
-        assert_eq!(
-            std::fs::read(installed.join(binary_name(KEPT))).expect("the helper"),
+        assert!(swapped.kept.is_empty(), "{swapped:?}");
+        assert!(swapped.replaced.contains(&helper.to_owned()), "{swapped:?}");
+        assert_ne!(
+            std::fs::read(installed.join(binary_name(helper))).expect("the helper"),
             b"old",
-            "the helper this install already had is the helper it still has"
+            "the helper beside the program is the staged one now"
         );
-        assert!(!with_old_suffix(&installed.join(binary_name(KEPT))).exists());
     }
 
     /// A payload that gained a binary against an install that does not have it yet — which is how

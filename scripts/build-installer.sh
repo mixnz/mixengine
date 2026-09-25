@@ -2,7 +2,7 @@
 # Build the installer for the operating system you are sitting in front of.
 #
 #   scripts/build-installer.sh                    # this OS, its default installer
-#   scripts/build-installer.sh --format deb       # Linux only: which of the four
+#   scripts/build-installer.sh --format deb       # Linux only: deb or rpm
 #   scripts/build-installer.sh --skip-desktop     # reuse the window staged by an earlier run
 #
 # **A wrapper over `packaging/`, never a second packager.** What goes into an artifact is
@@ -45,7 +45,7 @@ for arg in "$@"; do
 done
 
 if [ "$want_format" -eq 1 ]; then
-  echo "--format needs one of: deb rpm appimage tarball" >&2
+  echo "--format needs one of: deb rpm" >&2
   exit 64
 fi
 
@@ -61,7 +61,7 @@ case "$os" in
     [ -z "$format" ] || { echo "--format is a Linux option; Windows builds one installer" >&2; exit 64; }
     script="$MIX_ROOT/packaging/windows/build.sh"
     tools=(unzip 7z)
-    label="a per-user NSIS installer, a portable zip and a headless zip"
+    label="the per-user NSIS installer, a headless one and the update payload"
     # **7-Zip's installer does not put itself on `PATH`, and never has.** `packaging/windows/build.sh`
     # calls `7z` as a bare command because the GitHub runner image has it there; on a machine where a
     # person installed it, `mix_require 7z` fails with the tool sitting in the one place it always
@@ -91,32 +91,22 @@ case "$os" in
     [ -z "$format" ] || { echo "--format is a Linux option; macOS builds one installer" >&2; exit 64; }
     script="$MIX_ROOT/packaging/macos/build.sh"
     tools=(pkgbuild productbuild lipo)
-    label="one universal .pkg and a headless .tar.gz"
+    label="one universal .pkg and a headless one"
     ;;
   Linux)
-    case "${format:-appimage}" in
-      appimage)
-        script="$MIX_ROOT/packaging/linux/build-appimage.sh"
-        tools=(curl desktop-file-validate)
-        label="an AppImage"
-        ;;
+    case "${format:-deb}" in
       deb)
         script="$MIX_ROOT/packaging/linux/build-deb.sh"
         tools=(dpkg-deb)
-        label="a .deb"
+        label="a .deb and a headless one"
         ;;
       rpm)
         script="$MIX_ROOT/packaging/linux/build-rpm.sh"
         tools=(rpmbuild)
-        label="an .rpm"
-        ;;
-      tarball)
-        script="$MIX_ROOT/packaging/linux/build-tarball.sh"
-        tools=(tar)
-        label="the update payload and a headless .tar.gz"
+        label="an .rpm and a headless one"
         ;;
       *)
-        echo "unknown format: $format (deb rpm appimage tarball)" >&2
+        echo "unknown format: $format (deb rpm)" >&2
         exit 64
         ;;
     esac
@@ -173,7 +163,7 @@ echo
 
 # **Once, up front, rather than inside the packaging run.** `stage.sh` builds the window itself when
 # nothing has staged it, so this line is only ever about where the ten minutes are spent and what
-# you are looking at while they are — except on Linux, where each of the four scripts calls
+# you are looking at while they are — except on Linux, where each of the two scripts calls
 # `stage.sh` and the guard is what keeps a second format from paying for the webview again.
 if [ "$skip_desktop" -eq 1 ]; then
   window="$MIX_OUT/window/$(mix_window_key "")"

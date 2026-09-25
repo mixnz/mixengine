@@ -22,6 +22,26 @@ pub const PROBE_FILE: &str = ".mixengine-update-probe";
 /// The receipt the macOS `.pkg` installs under — `packaging/macos/build.sh`'s `--identifier`.
 pub const PKG_RECEIPT: &str = "dev.mixengine.cli";
 
+/// The kind of installer that updates a copy with this receipt, or [`None`] when no installer does —
+/// roadmap tasks **T88f** and **T182b**, D5.
+///
+/// `pkg` for the macOS package's receipt, and `deb` or `rpm` for a copy one of the Linux packages
+/// installed: `mixengine-platform` spells those receipts `dpkg:<package>` and `rpm:<package>`. A
+/// copy a package manager owns is updated by the next package of the same kind, handed to the
+/// system's own installer, never swapped in place.
+#[must_use]
+pub fn installer_kind(receipt: &str) -> Option<&'static str> {
+    if receipt == PKG_RECEIPT {
+        return Some("pkg");
+    }
+
+    match receipt.split_once(':') {
+        Some(("dpkg", package)) if !package.is_empty() => Some("deb"),
+        Some(("rpm", package)) if !package.is_empty() => Some("rpm"),
+        _ => None,
+    }
+}
+
 /// Where this build is installed, and what that means for updating it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Placement {
@@ -88,7 +108,7 @@ pub fn of(daemon_exe: &Path, appimage: Option<&OsStr>, receipt: Option<&str>) ->
         };
     };
 
-    if let Some(receipt) = receipt.filter(|receipt| *receipt == PKG_RECEIPT) {
+    if let Some(receipt) = receipt.filter(|receipt| installer_kind(receipt).is_some()) {
         return Placement::Installer {
             directory: directory.to_path_buf(),
             receipt: receipt.to_owned(),
@@ -188,6 +208,27 @@ mod tests {
             matches!(&placement, Placement::Installer { receipt, .. } if receipt == PKG_RECEIPT),
             "{placement:?}"
         );
+    }
+
+    /// T182b, D5. A copy a `.deb` or an `.rpm` installed is updated by the next package of the same
+    /// kind, like the `.pkg`, and the receipt says which kind that is.
+    #[test]
+    fn a_linux_package_receipt_is_an_installer_of_its_own_kind() {
+        let directory = tempfile::tempdir().expect("a temporary directory");
+        let exe = directory.path().join("mixengined");
+
+        for (receipt, kind) in [("dpkg:mixlab", "deb"), ("rpm:mixengine-headless", "rpm")] {
+            let placement = of(&exe, None, Some(receipt));
+
+            assert!(
+                matches!(&placement, Placement::Installer { receipt: held, .. } if held == receipt),
+                "{placement:?}"
+            );
+            assert_eq!(installer_kind(receipt), Some(kind));
+        }
+
+        assert_eq!(installer_kind(PKG_RECEIPT), Some("pkg"));
+        assert_eq!(installer_kind("dpkg:"), None);
     }
 
     #[test]

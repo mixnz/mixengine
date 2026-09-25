@@ -2,7 +2,8 @@
 
 **Status**: Accepted — supersedes decision 5 of
 [0044](0044-mixlab-is-the-product-and-mixengine-is-the-engine.md), and the part of roadmap task
-T176d that froze `Package: mixengine`
+T176d that froze `Package: mixengine`. Its list of downloads is amended by
+[0053](0053-the-helper-has-its-own-version-and-follows-the-product.md).
 **Date**: 2026-09-23
 
 ## Context

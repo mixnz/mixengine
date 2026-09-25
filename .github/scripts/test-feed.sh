@@ -4,8 +4,11 @@
 # The script it tests writes the one document an installed MixEngine reads to find out that a newer
 # one exists, and the only other thing that would ever run it is a release. So it is run here
 # instead, and the properties that matter are asserted: the hash and the size describe the file
-# beside them, `provides` is read out of the archive rather than assumed, and a universal macOS
-# archive produces two rows — one per architecture — pointing at the same URL.
+# beside them, `provides` is read out of the archive rather than assumed, and a universal macOS file
+# produces two rows — one per architecture — pointing at the same URL.
+#
+# **Since T182b, D5 the one payload is the Windows zip**; macOS and Linux are updated by their
+# installers, which the feed lists under `installers`, two flavours each.
 
 set -euo pipefail
 
@@ -13,46 +16,53 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+# The helper's version is the repository's own — `feed.sh` looks the helper assets up by it.
+helper_version="$(sed -n 's/^pub const HELPER_VERSION: &str = "\(.*\)";$/\1/p' \
+  "$root/crates/mixengine-proto/src/privileged.rs" | head -1)"
+test -n "$helper_version" || {
+  echo "no HELPER_VERSION in mixengine-proto" >&2
+  exit 1
+}
+
 version="9.9.9"
 dist="$work/dist"
-mkdir -p "$dist" "$work/payload/mixengine"
+mkdir -p "$dist"
 
-for binary in mix mixengined mixengine-elevate; do
-  echo "not really $binary" >"$work/payload/mixengine/$binary"
-done
+windows="mixlab-$version-windows-x86_64.zip"
+python3 - "$dist/$windows" <<'PY'
+import sys
+import zipfile
 
-# T106. The macOS payload carries the window, and on that system the window is an application
-# bundle — a directory. `feed.sh` builds `provides` by walking the archive, and every arm it had
-# skipped a directory: without this fixture, a release could ship a macOS payload that promises four
-# binaries and no window, and the only sign of it would be a window that is never updated again.
-mkdir -p "$work/macos/mixengine/MixLab.app/Contents/MacOS"
-cp "$work/payload/mixengine/"* "$work/macos/mixengine/"
-echo "not really a window" >"$work/macos/mixengine/MixLab.app/Contents/MacOS/mixlab"
-echo "not really a plist" >"$work/macos/mixengine/MixLab.app/Contents/Info.plist"
-
-linux="mixlab-$version-linux-x86_64.tar.gz"
-macos="mixlab-$version-macos-universal.tar.gz"
-tar -czf "$dist/$linux" -C "$work/payload" mixengine
-tar -czf "$dist/$macos" -C "$work/macos" mixengine
+with zipfile.ZipFile(sys.argv[1], "w") as archive:
+    for name in ["mix", "mixengined", "mixengine-elevate"]:
+        archive.writestr(f"mixengine/{name}.exe", f"not really {name}\n")
+PY
 
 # One with a `.sha256` beside it and one without, because both happen: every packaging script writes
 # one, and a hand-assembled directory may not.
-(cd "$dist" && sha256sum "$linux" >"$linux.sha256")
+(cd "$dist" && sha256sum "$windows" >"$windows.sha256")
 
-# The macOS `.pkg` — T88f. A copy the `.pkg` installed is updated by the next one, so the feed lists
-# it under `installers`, bound by its SHA-256 like a payload.
+# The installers — T88f and T182b, D5. Both flavours on both systems, and the unversioned Linux
+# aliases the handbook links, which must not become rows of their own.
 pkg="mixlab-$version-macos-universal.pkg"
-echo "not really an installer package" >"$dist/$pkg"
+pkg_headless="mixengine-$version-macos-universal-headless.pkg"
+deb="mixlab_$version-1_amd64.deb"
+deb_headless="mixengine-headless_$version-1_amd64.deb"
+rpm="mixlab-$version-1.x86_64.rpm"
+rpm_headless="mixengine-headless-$version-1.x86_64.rpm"
+for name in "$pkg" "$pkg_headless" "$deb" "$deb_headless" "$rpm" "$rpm_headless" \
+  "mixlab_amd64.deb" "mixlab-x86_64.rpm"; do
+  echo "not really an installer: $name" >"$dist/$name"
+done
 
-# The privileged helper of each leg, published as its own asset — roadmap task T88a. `mix
-# self-update` never replaces `mixengine-elevate`, so a release cannot deliver it inside a payload;
-# what a machine fetches is this file and the `.minisig` `sign.sh` puts beside it. `feed.sh` refuses
-# a distribution with none, which is also what makes these two lines part of the fixture rather than
-# an extra.
-helper_linux="mixengine-elevate-$version-linux-x86_64"
-helper_macos="mixengine-elevate-$version-macos-universal"
+# The privileged helper of each leg, published as its own asset — roadmap task T88a, named by the
+# helper's own version since T182b, D1. `feed.sh` refuses a distribution with none.
+helper_linux="mixengine-elevate-$helper_version-linux-x86_64"
+helper_macos="mixengine-elevate-$helper_version-macos-universal"
+helper_windows="mixengine-elevate-$helper_version-windows-x86_64.exe"
 echo "not really a privileged helper" >"$dist/$helper_linux"
 echo "not really a privileged helper either" >"$dist/$helper_macos"
+echo "nor this one" >"$dist/$helper_windows"
 
 bash "$root/packaging/feed.sh" --dist "$dist" --version "$version" --tag "v$version" \
   --repo "example/mixengine"
@@ -62,18 +72,27 @@ test -f "$dist/latest.json" || {
   exit 1
 }
 
-python3 - "$dist/latest.json" "$dist/$linux" "$dist/$macos" "$version" \
-  "$dist/$helper_linux" "$dist/$helper_macos" "$dist/$pkg" <<'PY'
+python3 - "$dist/latest.json" "$dist" "$version" "$helper_version" <<'PY'
 import hashlib
 import json
 import os
 import re
 import sys
 
-feed_path, linux_path, macos_path, version, helper_linux, helper_macos, pkg_path = sys.argv[1:8]
+feed_path, dist, version, helper_version = sys.argv[1:5]
 
 with open(feed_path, encoding="utf-8") as handle:
     feed = json.load(handle)
+
+
+def digest(name):
+    with open(os.path.join(dist, name), "rb") as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def size(name):
+    return os.path.getsize(os.path.join(dist, name))
+
 
 assert feed["schema"] == 1, feed["schema"]
 assert feed["version"] == version, feed["version"]
@@ -86,95 +105,63 @@ assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", feed["published_at"
 assert feed["notes"].strip(), "the feed carries no notes at all"
 assert feed["notes_url"].endswith(f"/v{version}"), feed["notes_url"]
 
-by_pair = {(row["os"], row["arch"]): row for row in feed["artifacts"]}
+# One payload, the Windows zip, and `provides` read out of it with the `.exe` off the key.
+assert len(feed["artifacts"]) == 1, feed["artifacts"]
+row = feed["artifacts"][0]
+windows = f"mixlab-{version}-windows-x86_64.zip"
+assert (row["os"], row["arch"]) == ("windows", "x86_64"), row
+assert row["sha256"] == digest(windows), row
+assert row["size"] == size(windows), row
+assert row["url"] == f"https://github.com/example/mixengine/releases/download/v{version}/{windows}"
+assert row["provides"] == {
+    "mix": "mixengine/mix.exe",
+    "mixengined": "mixengine/mixengined.exe",
+    "mixengine-elevate": "mixengine/mixengine-elevate.exe",
+}, row["provides"]
 
-# Three rows out of two files: macOS is universal and is listed under both architectures, so a
-# client asks with the pair it has rather than learning what "universal" means.
-assert len(feed["artifacts"]) == 3, feed["artifacts"]
-assert ("linux", "x86_64") in by_pair, by_pair.keys()
-assert ("macos", "x86_64") in by_pair, by_pair.keys()
-assert ("macos", "aarch64") in by_pair, by_pair.keys()
-assert (
-    by_pair[("macos", "x86_64")]["url"] == by_pair[("macos", "aarch64")]["url"]
-), "the two macOS rows must name one archive"
-
-binaries = {
-    "mix": "mixengine/mix",
-    "mixengined": "mixengine/mixengined",
-    "mixengine-elevate": "mixengine/mixengine-elevate",
-}
-
-for pair, path, provides in [
-    (("linux", "x86_64"), linux_path, binaries),
-    # T106. macOS additionally provides the window, and the window there is a directory — the one
-    # `provides` value in this product that is not a file. `updates::apply::swap` looks it up by the
-    # key and replaces the tree it names; a row without it is a release whose window is never
-    # updated, with nothing anywhere to say so.
-    (("macos", "x86_64"), macos_path, {**binaries, "mixlab": "mixengine/MixLab.app"}),
-]:
-    row = by_pair[pair]
-
-    with open(path, "rb") as handle:
-        digest = hashlib.sha256(handle.read()).hexdigest()
-
-    assert row["sha256"] == digest, f"{pair}: {row['sha256']} != {digest}"
-    assert row["size"] == os.path.getsize(path), pair
-    assert row["url"].startswith("https://github.com/example/mixengine/releases/download/"), row[
-        "url"
-    ]
-
-    # Read out of the archive rather than assumed: this is the field `core::install` uses to find
-    # each binary inside the payload, and a wrong one is an update that fails after the download.
-    assert row["provides"] == provides, row["provides"]
-
-# And the bundle is named once, however many entries it holds inside it.
-assert len(by_pair[("macos", "aarch64")]["provides"]) == 4, by_pair[("macos", "aarch64")][
-    "provides"
-]
-
-# T88a. Three helper rows out of two files, on the same rule the archives follow: macOS publishes one
-# universal helper and is listed under both architectures. A release missing these is one where
-# `mix elevation upgrade` answers "no privileged helper for this machine" for ever, and the helper is
-# the one binary a release cannot deliver any other way.
+# T88a. Four helper rows out of three files: macOS publishes one universal helper and is listed
+# under both architectures. Each row carries the helper's own version (T182b, D1), and no `sha256` —
+# the helper is checked inside the elevated process against a detached signature (T88a, D6).
 helpers = {(row["os"], row["arch"]): row for row in feed["helpers"]}
+assert set(helpers) == {
+    ("linux", "x86_64"),
+    ("windows", "x86_64"),
+    ("macos", "x86_64"),
+    ("macos", "aarch64"),
+}, helpers.keys()
+assert helpers[("macos", "x86_64")]["url"] == helpers[("macos", "aarch64")]["url"]
+for row in feed["helpers"]:
+    assert row["version"] == helper_version, row
+    assert "sha256" not in row, row
+    name = row["url"].rsplit("/", 1)[1]
+    assert row["size"] == size(name), row
 
-assert len(feed["helpers"]) == 3, feed["helpers"]
-assert ("linux", "x86_64") in helpers, helpers.keys()
-assert ("macos", "x86_64") in helpers, helpers.keys()
-assert ("macos", "aarch64") in helpers, helpers.keys()
-assert (
-    helpers[("macos", "x86_64")]["url"] == helpers[("macos", "aarch64")]["url"]
-), "the two macOS helper rows must name one file"
-
-for pair, path in [(("linux", "x86_64"), helper_linux), (("macos", "x86_64"), helper_macos)]:
-    row = helpers[pair]
-
-    assert row["size"] == os.path.getsize(path), f"{pair}: {row['size']} != {os.path.getsize(path)}"
-    assert row["url"].startswith("https://github.com/example/mixengine/releases/download/"), row[
-        "url"
-    ]
-    assert row["url"].endswith(os.path.basename(path)), row["url"]
-
-# **No `sha256` on a helper row, and that is the design rather than an omission** — T88a's D6. The
-# artifact rows are bound to this signed document by a hash; the helper is checked inside the
-# elevated process against a detached signature it can verify without ever having read this feed.
-assert all("sha256" not in row for row in feed["helpers"]), feed["helpers"]
-
-# T88f. One universal `.pkg`, under both Mac rows, bound by its SHA-256.
-installers = {(row["os"], row["arch"]): row for row in feed["installers"]}
-assert set(installers) == {("macos", "x86_64"), ("macos", "aarch64")}, installers.keys()
-assert installers[("macos", "x86_64")]["url"] == installers[("macos", "aarch64")]["url"]
-with open(pkg_path, "rb") as handle:
-    pkg_digest = hashlib.sha256(handle.read()).hexdigest()
-for row in feed["installers"]:
-    assert row["kind"] == "pkg", row
-    assert row["url"].endswith(os.path.basename(pkg_path)), row["url"]
-    assert row["sha256"] == pkg_digest, f"{row['sha256']} != {pkg_digest}"
-    assert row["size"] == os.path.getsize(pkg_path), row
+# T88f and T182b, D5. One row per (os, arch, kind, flavour), bound by its SHA-256, and never an
+# unversioned alias.
+installers = {
+    (row["os"], row["arch"], row["kind"], row["flavour"]): row for row in feed["installers"]
+}
+expected = {
+    ("macos", "x86_64", "pkg", "window"): f"mixlab-{version}-macos-universal.pkg",
+    ("macos", "aarch64", "pkg", "window"): f"mixlab-{version}-macos-universal.pkg",
+    ("macos", "x86_64", "pkg", "headless"): f"mixengine-{version}-macos-universal-headless.pkg",
+    ("macos", "aarch64", "pkg", "headless"): f"mixengine-{version}-macos-universal-headless.pkg",
+    ("linux", "x86_64", "deb", "window"): f"mixlab_{version}-1_amd64.deb",
+    ("linux", "x86_64", "deb", "headless"): f"mixengine-headless_{version}-1_amd64.deb",
+    ("linux", "x86_64", "rpm", "window"): f"mixlab-{version}-1.x86_64.rpm",
+    ("linux", "x86_64", "rpm", "headless"): f"mixengine-headless-{version}-1.x86_64.rpm",
+}
+assert len(feed["installers"]) == len(expected), feed["installers"]
+assert set(installers) == set(expected), sorted(installers)
+for key, name in expected.items():
+    row = installers[key]
+    assert row["url"].endswith("/" + name), (key, row["url"])
+    assert row["sha256"] == digest(name), (key, row)
+    assert row["size"] == size(name), (key, row)
 
 print(
-    f"latest.json describes {len(feed['artifacts'])} rows over 2 archives, "
-    f"and {len(feed['helpers'])} helper rows over 2 files"
+    f"latest.json describes {len(feed['artifacts'])} payload, {len(feed['helpers'])} helper rows "
+    f"and {len(feed['installers'])} installer rows"
 )
 PY
 
@@ -193,22 +180,28 @@ fi
 # and it is the shape a leg that forgot `mix_publish_helper` would produce.
 helperless="$work/helperless"
 mkdir -p "$helperless"
-cp "$dist/$linux" "$helperless/"
+cp "$dist/$windows" "$helperless/"
 if bash "$root/packaging/feed.sh" --dist "$helperless" --version "$version" --tag "v$version" \
   --repo "example/mixengine" 2>/dev/null; then
   echo "feed.sh wrote a feed for a directory with no privileged helper in it" >&2
   exit 1
 fi
 
-# **And a macOS payload with no `.pkg` beside it is a failure** — T88f. Every Mac that installed the
-# `.pkg` would be offered nothing by that release, and nothing else would notice.
-pkgless="$work/pkgless"
-mkdir -p "$pkgless"
-cp "$dist/$macos" "$dist/$helper_macos" "$pkgless/"
-if bash "$root/packaging/feed.sh" --dist "$pkgless" --version "$version" --tag "v$version" \
-  --repo "example/mixengine" 2>/dev/null; then
-  echo "feed.sh wrote a feed for a macOS payload with no .pkg beside it" >&2
-  exit 1
-fi
+# **And a helper for macOS or Linux with no installer beside it is a failure** — T88f, T182b D5.
+# Every such machine would be offered nothing by that release, and nothing else would notice.
+for system in macos linux; do
+  installerless="$work/installerless-$system"
+  mkdir -p "$installerless"
+  cp "$dist/$windows" "$dist/$helper_windows" "$installerless/"
+  case "$system" in
+    macos) cp "$dist/$helper_macos" "$installerless/" ;;
+    linux) cp "$dist/$helper_linux" "$installerless/" ;;
+  esac
+  if bash "$root/packaging/feed.sh" --dist "$installerless" --version "$version" \
+    --tag "v$version" --repo "example/mixengine" 2>/dev/null; then
+    echo "feed.sh wrote a feed for a $system helper with no installer beside it" >&2
+    exit 1
+  fi
+done
 
 echo "packaging/feed.sh writes what a release needs, and refuses what it cannot describe"

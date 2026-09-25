@@ -82,7 +82,8 @@ fn the_release_ships_every_binary_this_code_looks_for() {
         "mix".to_owned(),
         mixengine_core::updates::apply::SMOKE_EXECUTABLE.to_owned(),
         mixengine_core::shims::BINARY.to_owned(),
-        mixengine_core::updates::apply::KEPT.to_owned(),
+        // The helper beside the program, which the daemon installs the privileged copy from.
+        "mixengine-elevate".to_owned(),
         // The window — T105. Read out of the manifest that produces the file rather than spelled
         // here: `cargo` names the executable after `[package].name` and Tauri leaves that alone
         // (`mainBinaryName` is unset), so this is the one string that cannot drift from the file

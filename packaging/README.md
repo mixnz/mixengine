@@ -11,12 +11,10 @@ Release process: [`docs/operations/build-and-release.md`](../docs/operations/bui
 
 ```bash
 bash packaging/desktop.sh            # anywhere:   MixLab, the window — see below
-bash packaging/windows/build.sh      # on Windows: a per-user installer, a portable zip, a headless zip
-bash packaging/macos/build.sh        # on macOS:   one universal .pkg and a headless .tar.gz
-bash packaging/linux/build-deb.sh    # on Linux:   .deb
-bash packaging/linux/build-rpm.sh    #             .rpm
-bash packaging/linux/build-appimage.sh  #          AppImage
-bash packaging/linux/build-tarball.sh   #          the update payload and a headless .tar.gz
+bash packaging/windows/build.sh      # on Windows: a per-user installer, a headless one, and the update zip
+bash packaging/macos/build.sh        # on macOS:   one universal .pkg with the window and one without
+bash packaging/linux/build-deb.sh    # on Linux:   .deb, with the window and headless
+bash packaging/linux/build-rpm.sh    #             .rpm, with the window and headless
 bash scripts/build-installer.sh      # anywhere:   picks this OS's line above, tools checked first
 ```
 
@@ -54,16 +52,15 @@ Two pieces here have checks that need no packaging tools and run on any of the t
 what they get wrong is invisible until a release is in somebody's hands:
 
 ```bash
-bash packaging/linux/apprun-check.sh  # the AppImage's cache really gets every binary
 bash packaging/feed-check.sh          # feed.sh over a fixture distribution — see below
 bash packaging/bindings.sh --check    # the committed API contract is what the crate generates
 ```
 
 | OS | Artifacts |
 | --- | --- |
-| Windows | `mixlab-<version>-windows-x86_64-setup.exe`, `mixlab-<version>-windows-x86_64.zip`, `mixengine-<version>-windows-x86_64-headless.zip` |
-| macOS | `mixlab-<version>-macos-universal.pkg`, `mixlab-<version>-macos-universal.tar.gz`, `mixengine-<version>-macos-universal-headless.tar.gz` |
-| Linux | `mixlab-<version>-linux-x86_64.AppImage`, `mixlab_<version>-1_amd64.deb`, `mixlab-<version>-1.x86_64.rpm`, `mixlab-<version>-linux-x86_64.tar.gz`, `mixengine-<version>-linux-x86_64-headless.tar.gz` |
+| Windows | `mixlab-<version>-windows-x86_64-setup.exe`, `mixengine-<version>-windows-x86_64-headless-setup.exe`, and `mixlab-<version>-windows-x86_64.zip` (the update payload, not linked for installing) |
+| macOS | `mixlab-<version>-macos-universal.pkg`, `mixengine-<version>-macos-universal-headless.pkg` |
+| Linux | `mixlab_<version>-1_amd64.deb`, `mixlab-<version>-1.x86_64.rpm`, `mixengine-headless_<version>-1_amd64.deb`, `mixengine-headless-<version>-1.x86_64.rpm` |
 
 **What carries the window is named `mixlab`, and what does not keeps MixEngine's name** —
 [ADR 0049](../docs/decisions/0049-a-download-is-named-after-what-it-installs.md). The two prefixes
@@ -92,25 +89,19 @@ hand.
 
 ## The update payload, and the feed
 
-One artifact per OS is not an installer at all: a plain archive of the release's binaries, which is
-what `mix self-update` applies — roadmap task **T88**. **None of the five installers can be applied
-by an updater**: the `.deb`, the `.rpm` and the `.pkg` need root, and an AppImage is a file the user
-placed rather than a directory of binaries. On Windows this artifact is the portable zip, which
-already was one; on the other two it is the `.tar.gz` in the table above.
+One artifact is not an installer at all: the Windows zip, a plain archive of the release's binaries,
+which is what `mix self-update` applies to a per-user Windows install — roadmap task **T88**. The
+`.deb`, the `.rpm` and the `.pkg` need root, so a copy one of them placed is updated by the next
+package of its own kind, listed in the feed's `installers` (T88f, and T182b for Linux). macOS and
+Linux have no payload since T182b.
 
-All three hold **one top-level `mixengine/` directory**, which is what lets one `provides` shape in
+It holds **one top-level `mixengine/` directory**, which is what lets one `provides` shape in
 the feed describe every artifact this project ships — and what stops a zip extracted into `Downloads`
 scattering five binaries there.
 
-**The headless archives are downloads, never payloads.** Since T176f their prefix no longer matches
-the globs `feed.sh` collects payloads with, and that script still skips `*-headless.*` by name — one
-that got in would produce a second row for an (os, arch) pair that already has one, and a client
-takes the first row it matches.
-An install with no window has nothing an update would replace anyway, which `updates::apply`'s own
-rule already guarantees. On macOS the payload and the headless archive hold the same four binaries
-today: `feed.sh` builds `provides` only from plain files directly under `mixengine/`, so the `.app`
-would be forty megabytes nothing looks up. Putting it there is T106's, with the feed change that
-makes it readable.
+**A headless archive is never a payload.** None is published since T182b, and `feed.sh` still skips
+`*-headless.*` by name: one that got in would produce a second row for an (os, arch) pair that
+already has one, and a client takes the first row it matches.
 
 ```bash
 bash packaging/feed.sh --tag v0.2.0 --repo mixnz/mixlab
@@ -268,7 +259,7 @@ operating system will run it without a warning.
 **No installer places `mixengine-elevate`.** MixEngine installs it itself, inside the elevation
 prompt first-run setup already costs — [ADR 0015](../docs/decisions/0015-the-helper-installs-itself.md).
 The `.deb`, the `.rpm` and the `.pkg` ship it at that same path anyway, because they run as root and
-can; the operation then finds its work already done. The per-user Windows installer, the portable zip
-and the AppImage cannot, which is why the mechanism is not a packager's.
+can; the operation then finds its work already done. The per-user Windows installer and a source
+build cannot, which is why the mechanism is not a packager's.
 
 **No autostart entry.** `ServiceInstaller` is roadmap task **T85b**.

@@ -109,9 +109,8 @@ sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengin
   /Applications/MixLab.app
 ```
 
-On Windows, the installer's own uninstaller already did this part. For the portable zip, delete the
-folder. On macOS, the third line above is what the `.pkg` placed, **MixLab** included. An AppImage
-is one file you delete.
+On Windows, the installer's own uninstaller already did this part. On macOS, the third line above is
+what the `.pkg` placed, **MixLab** included.
 
 ## What is deliberately not automatic
 

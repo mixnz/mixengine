@@ -578,6 +578,78 @@ pub fn helper(program: &Path, installed: Option<&Path>) -> Result<PathBuf> {
     })
 }
 
+/// Whether a batch goes past the installed helper to the one this release ships — roadmap task
+/// **T182b**, D3.
+///
+/// **Only when the installed helper cannot do the work**: it does not list an operation in the
+/// batch among its `supported_ops`, *and* the shipped copy reports this release's
+/// [`HELPER_VERSION`](mixengine_proto::privileged::HELPER_VERSION). Never merely because the
+/// installed one is older: an older helper that knows `helper-replace` is replaced through the
+/// signed path instead. The trust the shipped copy gets here is exactly what a first grant on a new
+/// machine already gives it, which `docs/architecture/security-model.md` states as a residual.
+#[derive(Debug, Clone, Copy)]
+pub struct Bypass<'a> {
+    /// What the installed helper answered its probe with.
+    pub installed_ops: &'a [String],
+
+    /// What the shipped copy answered its probe with, when it answered.
+    pub shipped_version: Option<&'a str>,
+
+    /// The wire names of the operations in the batch.
+    pub batch_ops: &'a [&'a str],
+}
+
+impl Bypass<'_> {
+    /// Does this batch go through the shipped copy?
+    #[must_use]
+    pub fn applies(&self) -> bool {
+        let knows = |op: &str| self.installed_ops.iter().any(|known| known == op);
+
+        let current = self.shipped_version == Some(mixengine_proto::privileged::HELPER_VERSION);
+        let unreadable = self.batch_ops.iter().any(|op| !knows(op));
+
+        // **And an install over a helper too old to replace itself** (D2's last row). Such a helper
+        // does know `helper-install`, but run by it the operation copies *its own* image onto
+        // itself and answers `AlreadyDone`: only the shipped copy can install anything newer.
+        let install_over_old =
+            self.batch_ops.contains(&"helper-install") && !knows("helper-replace");
+
+        current && (unreadable || install_over_old)
+    }
+}
+
+/// The copy of the helper this release ships, where it is on this machine — the first of the
+/// platform's sources that exists, as [`helper`] would pick with nothing installed.
+#[must_use]
+pub fn shipped(program: &Path) -> Option<PathBuf> {
+    mixengine_platform::install::helper_sources(program, crate::window::BUNDLE)
+        .into_iter()
+        .find(|path| path.is_file())
+}
+
+/// [`helper`], and T182b's D3: the shipped copy instead of the installed one when [`Bypass`]
+/// applies.
+///
+/// **A refusal stays a refusal.** An installed helper that is not an administrator's is refused
+/// before any bypass is considered: going around it would run the weaker arrangement at exactly the
+/// moment somebody made it.
+///
+/// # Errors
+///
+/// As [`helper`].
+pub fn helper_for(
+    program: &Path,
+    installed: Option<&Path>,
+    bypass: Option<&Bypass<'_>>,
+) -> Result<PathBuf> {
+    let chosen = helper(program, installed)?;
+
+    match bypass.filter(|bypass| bypass.applies()) {
+        Some(_) => Ok(shipped(program).unwrap_or(chosen)),
+        None => Ok(chosen),
+    }
+}
+
 /// D5's table, over facts rather than over a filesystem.
 ///
 /// Separated so that the table is a unit test: the row that matters most — an installed helper that
@@ -817,6 +889,75 @@ mod tests {
     /// T85's D5, as its own table, with T88d's source list in place of the single fallback. Every
     /// row, including the two no machine running this test could produce: an installed helper
     /// somebody else owns, and one the machine will not answer about.
+    fn ops(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| (*name).to_owned()).collect()
+    }
+
+    /// T182b, D3. The installed helper knows every operation in the batch: it runs it.
+    #[test]
+    fn an_installed_helper_that_knows_the_batch_is_not_bypassed() {
+        let installed = ops(&["hosts-apply", "trust-ca-install"]);
+        let bypass = Bypass {
+            installed_ops: &installed,
+            shipped_version: Some(mixengine_proto::privileged::HELPER_VERSION),
+            batch_ops: &["hosts-apply"],
+        };
+
+        assert!(!bypass.applies());
+    }
+
+    /// T182b, D3. The installed helper cannot read an operation in the batch, and the shipped copy
+    /// is this release's: the shipped copy runs it.
+    #[test]
+    fn an_installed_helper_that_cannot_read_the_batch_gives_way_to_the_current_one() {
+        let installed = ops(&["hosts-apply"]);
+        let bypass = Bypass {
+            installed_ops: &installed,
+            shipped_version: Some(mixengine_proto::privileged::HELPER_VERSION),
+            batch_ops: &["hosts-apply", "helper-remove"],
+        };
+
+        assert!(bypass.applies());
+    }
+
+    /// T182b, D2's last row. A helper too old to replace itself does know `helper-install`, but run
+    /// by it that copies its own image onto itself; the install goes through the shipped copy. A
+    /// helper that can replace itself is never bypassed for an install.
+    #[test]
+    fn an_install_over_a_helper_too_old_to_replace_itself_goes_through_the_shipped_copy() {
+        let too_old = ops(&["hosts-apply", "helper-install"]);
+        let bypass = Bypass {
+            installed_ops: &too_old,
+            shipped_version: Some(mixengine_proto::privileged::HELPER_VERSION),
+            batch_ops: &["helper-install", "hosts-apply"],
+        };
+        assert!(bypass.applies());
+
+        let replaces_itself = ops(&["hosts-apply", "helper-install", "helper-replace"]);
+        let bypass = Bypass {
+            installed_ops: &replaces_itself,
+            ..bypass
+        };
+        assert!(!bypass.applies());
+    }
+
+    /// T182b, D3. A shipped copy that is not this release's, or that did not answer, is never the
+    /// way around: that would trade a helper that cannot do the work for one nobody vouched for.
+    #[test]
+    fn a_shipped_copy_that_is_not_current_is_never_the_bypass() {
+        let installed = ops(&["hosts-apply"]);
+
+        for shipped_version in [Some("0.0.7"), None] {
+            let bypass = Bypass {
+                installed_ops: &installed,
+                shipped_version,
+                batch_ops: &["helper-remove"],
+            };
+
+            assert!(!bypass.applies(), "{shipped_version:?}");
+        }
+    }
+
     #[test]
     fn which_helper_is_run_and_when_nothing_is() {
         let installed = PathBuf::from("/system/mixengine-elevate");

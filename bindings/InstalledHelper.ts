@@ -24,8 +24,8 @@ supported_ops: Array<string>,
  * What to do about it being older than this daemon, when it is.
  *
  * Rendered here rather than by a client, on [`PendingOp::description`]'s rule and for its
- * reason: what to do differs by *which* old helper it is — one that can replace itself is
- * pointed at `mix elevation upgrade` and one that cannot is pointed at the installer — and a
- * client deciding that would be a client deciding what runs as root.
+ * reason: a client deciding what to say about the helper would be a client deciding what runs
+ * as root. Since T182b there is nothing for a person to run: the daemon replaces an older
+ * helper at the next prompt, and this says so.
  */
 upgrade?: string | null, };

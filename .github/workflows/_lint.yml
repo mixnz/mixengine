@@ -73,6 +73,16 @@ jobs:
           cargo tree -p mixengine-elevate --no-default-features --edges normal             --prefix none --format '{p}' | sed 's/ v[0-9].*//' | sort -u > /tmp/elevate-dependencies.txt
           grep -v '^#' .github/elevate-dependencies.txt | diff -u - /tmp/elevate-dependencies.txt
 
+      # T182b, D1: what goes into the helper changed since the last release, and HELPER_VERSION did
+      # not. The pre-commit hook and the local gate catch it first; this is the net for anybody
+      # without them, still before a merge and never at a release. Three targets, because the
+      # fingerprint is every source any of the three systems compiles into the helper.
+      - name: The helper's version moved with what goes into it
+        run: |
+          rustup target add x86_64-pc-windows-msvc x86_64-unknown-linux-gnu aarch64-apple-darwin
+          bash packaging/helper-lock.sh --check
+          git diff --exit-code crates/mixengine-elevate/helper.lock
+
       # ADR 0013: `linux/secrets.rs` works only while the tree holds one `dbus-secret-service`.
       # `--color never` is load-bearing: coloured `(*)` markers break the count.
       - name: One dbus-secret-service in the tree, or the Linux keyring reading is silently dead
@@ -125,11 +135,6 @@ jobs:
       # above — the only other thing that would ever run `feed.sh` is a release.
       - name: The feed describes the archives beside it
         run: bash .github/scripts/test-feed.sh
-
-      # T105a: `AppRun`'s refusal below the window's floor, against a fixture directory with stubbed
-      # binaries. Nothing else would run it but somebody downloading a release.
-      - name: The AppImage's AppRun fills its cache and refuses in the right words
-        run: bash packaging/linux/apprun-check.sh
 
   # T56: regenerates the TypeScript contract and fails on drift. Ubuntu alone: generation is
   # OS-independent, and `test` runs the exporter on all three.

@@ -328,7 +328,7 @@ pub(crate) fn replace(home: &Path) -> OpOutcome {
         &mixengine_proto::privileged::helper_candidate(home),
         &mixengine_proto::privileged::helper_candidate_signature(home),
         crate::candidate::PUBLIC_KEY,
-        env!("CARGO_PKG_VERSION"),
+        mixengine_proto::privileged::HELPER_VERSION,
     ) {
         Ok(verified) => verified,
         Err(refusal) => return refusal.into_outcome(),

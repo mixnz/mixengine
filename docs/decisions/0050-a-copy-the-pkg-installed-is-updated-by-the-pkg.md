@@ -2,7 +2,8 @@
 
 **Status**: Accepted. It narrows the rule in [features/updates.md](../features/updates.md) that
 *"the updater applies the archive and never runs an installer"*, for a macOS `.pkg` install and
-nothing else.
+nothing else. Extended to the Linux `.deb` and `.rpm` by
+[0053](0053-the-helper-has-its-own-version-and-follows-the-product.md).
 **Date**: 2026-09-23
 
 ## Context

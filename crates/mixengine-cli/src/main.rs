@@ -39,23 +39,23 @@ use mixengine_proto::{
     ExtensionChoice, ExtensionConsent, ExtensionId, ExtensionInspect, ExtensionInspection,
     ExtensionInstall, ExtensionList, ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest,
     ExtensionRemoval, ExtensionTarget, ExtensionUninstall, FrontEndReport, FrontEndServer,
-    FrontEndSwitch, HelperUpgrade, IdleReport, InstalledExtensions, JobFilter, JobId, JobList,
-    JobOutcome, JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory,
-    Millis, MismatchAnswer, PackageCatalogue, PackageFilter, PackageInstall, PackageList,
-    PackageRemoval, PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority,
-    ProjectCreate, ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef,
-    ProjectRemoval, ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement,
-    Requirements, ResetCredential, ResidueId, ResolvedRuntime, ResourceLimits, RouteTarget,
-    RuntimeCatalogue, RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion,
-    RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources,
-    SaveResourcesSet, ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation,
-    ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList,
-    ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk,
-    SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery,
-    SiteQuery, SiteRef, SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate,
-    StorageReport, Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply,
-    UpdateCheck, UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver,
-    UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint, rpc,
+    FrontEndSwitch, IdleReport, InstalledExtensions, JobFilter, JobId, JobList, JobOutcome,
+    JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis,
+    MismatchAnswer, PackageCatalogue, PackageFilter, PackageInstall, PackageList, PackageRemoval,
+    PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate,
+    ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
+    ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement, Requirements,
+    ResetCredential, ResidueId, ResolvedRuntime, ResourceLimits, RouteTarget, RuntimeCatalogue,
+    RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
+    RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources, SaveResourcesSet,
+    ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId,
+    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
+    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
+    SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
+    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
+    Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
+    UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver, UpdatePlacement,
+    UpdateStatus, VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -1269,17 +1269,6 @@ enum ElevationCommand {
         #[arg(long)]
         no_wait: bool,
     },
-
-    /// Fetch the privileged helper this release publishes, and queue its installation.
-    ///
-    /// `mixengine-elevate` runs as root and is deliberately never replaced by `mix self-update`, so
-    /// this is the one part of an upgrade that has to be asked for separately.
-    ///
-    /// **Nothing is installed by this command.** It downloads the helper, checks MixEngine's
-    /// signature on it, runs it once to be sure this machine will start it, and puts the
-    /// replacement in the queue — `mix elevation grant` is what raises the prompt, and the helper
-    /// already installed checks that signature again itself before it replaces anything.
-    Upgrade,
 
     /// Forget an operation that is waiting, so it is never asked about again.
     Drop {
@@ -3011,6 +3000,19 @@ async fn uninstall(
 
     let mut client = Client::connect(endpoint, autostart).await?;
 
+    // T182b, D8: which process this is, by pid *and* the moment it began, so the wait at the end is
+    // for this daemon and not for whatever the OS later hands the pid to. A daemon that will not say
+    // is waited for the old way, by its endpoint going quiet.
+    let daemon = ask::<DaemonStatus>(&mut client, rpc::method::DAEMON_STATUS, None)
+        .await
+        .ok()
+        .and_then(|status| {
+            mixengine_platform::process::started_at(status.pid)
+                .ok()
+                .flatten()
+                .map(|began| (status.pid, began))
+        });
+
     let query = UninstallQuery {
         keep_home,
         keep_relocated,
@@ -3109,10 +3111,58 @@ async fn uninstall(
         report_left(path);
     }
 
-    Ok(match report.left_behind() || !still_there.is_empty() {
-        true => ExitCode::FAILURE,
-        false => ExitCode::SUCCESS,
+    // **And the process itself** (the T182b design, D8). The endpoint goes quiet before the daemon
+    // has finished removing its home and exited, and until it has, its image is still mapped: the
+    // Windows uninstaller deleting `mixengined.exe` straight after this returned is what found that.
+    let lingering = finished_uninstall(&report)
+        && daemon.is_some_and(|(pid, began)| !process_has_ended(pid, began));
+
+    if let Some((pid, _)) = daemon.filter(|_| lingering) {
+        report_left(&format!("the daemon (pid {pid}) is still running"));
+    }
+
+    Ok(
+        match report.left_behind() || !still_there.is_empty() || lingering {
+            true => ExitCode::FAILURE,
+            false => ExitCode::SUCCESS,
+        },
+    )
+}
+
+/// Did the daemon say this uninstall finished, which is what ends it (T182b, D1)?
+fn finished_uninstall(report: &UninstallReport) -> bool {
+    !report.items.iter().any(|item| {
+        matches!(
+            item.outcome,
+            Removal::Failed { .. } | Removal::Enqueued { .. }
+        )
     })
+}
+
+/// Wait up to [`PROCESS_GONE`] for the process that began at `began` to have ended, and say whether
+/// it did.
+///
+/// **By pid and start time**, so a pid the OS reused for something else in the meantime reads as
+/// ended rather than as this daemon still running.
+fn process_has_ended(pid: u32, began: mixengine_platform::process::StartTime) -> bool {
+    let deadline = std::time::Instant::now() + PROCESS_GONE;
+
+    loop {
+        let same = mixengine_platform::process::started_at(pid)
+            .ok()
+            .flatten()
+            .is_some_and(|now| now == began);
+
+        if !same {
+            return true;
+        }
+
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
 }
 
 /// `mix self-update` — roadmap task **T88**.
@@ -3457,6 +3507,11 @@ fn report_update_rollback(applied: &UpdateApplied, error: &Error) {
 /// this is generous rather than tight: what a short wait would buy is a false *"still there"* on a
 /// slow machine, which is the one wrong answer this command must not give.
 const GOING: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// How long a finished uninstall waits for the daemon's *process* to end once its endpoint has —
+/// the T182b design, D8. Removing a home with runtimes in it is the slow part, and a machine with a
+/// large `runtimes/` is exactly the one where giving up early would be a false *"still running"*.
+const PROCESS_GONE: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// The paths the daemon said it was taking with it that are still on disk once it has gone.
 ///
@@ -4931,15 +4986,6 @@ async fn elevation(
                 true => ExitCode::SUCCESS,
                 false => ExitCode::FAILURE,
             })
-        }
-
-        ElevationCommand::Upgrade => {
-            let report: HelperUpgrade =
-                ask(&mut client, rpc::method::ELEVATION_UPGRADE, None).await?;
-
-            emit(&rendered(json, &report, || render::helper_upgrade(&report)))?;
-
-            Ok(ExitCode::SUCCESS)
         }
 
         ElevationCommand::Drop { op, all } => {

@@ -1934,6 +1934,24 @@ async fn serve(
         }
     });
 
+    // **And the installed helper, brought into step with this release** — roadmap task T182b, D2.
+    // After the update's own restore, so a start that follows an update reads the helper the update
+    // left. Spawned for the same reason as the block above, and because fetching this release's
+    // signed helper can wait on the network, which a start must never do.
+    tokio::spawn({
+        let elevation = Arc::clone(&elevation);
+        let updates = Arc::clone(&updates);
+        let paths = paths.clone();
+
+        async move {
+            let row = crate::helper::keep_in_step(&elevation, &updates, &paths).await;
+            tracing::debug!(
+                ?row,
+                "the installed privileged helper was compared with this release"
+            );
+        }
+    });
+
     // **The check at start and the clock after it** — roadmap task T88. Both silent on failure, and
     // neither runs when `[updates] enabled = false`: that key is about what this daemon does
     // unprompted, and `mix self-update` goes on working because a person who typed it is asking.

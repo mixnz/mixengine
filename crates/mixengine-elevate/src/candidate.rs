@@ -93,7 +93,7 @@ impl std::fmt::Display for Refusal {
 /// Read a candidate and its detached signature, and hand back the bytes that verified.
 ///
 /// `not_older_than` is the version the *running* helper is, which is the floor a candidate has to
-/// reach. It is a parameter rather than `env!("CARGO_PKG_VERSION")` read in here for the reason
+/// reach. It is a parameter rather than `HELPER_VERSION` read in here for the reason
 /// `public_key` is one: no test can sign under the compiled-in key, so both facts this function
 /// decides against are supplied by its caller — and the caller in production supplies both in one
 /// line.

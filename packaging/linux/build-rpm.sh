@@ -103,3 +103,53 @@ alias_rpm="$(mix_publish_alias "$dist/$name" "$MIX_ARTIFACT-$arch.rpm")"
 
 echo "$dist/$name"
 echo "$alias_rpm"
+
+# **The headless package** — T182b, D5, which replaces the headless tarball: the same four
+# programs and helper under the same paths, no window, and none of the window's dependencies. It
+# and `mixlab` conflict with each other, since both own `/usr/bin/mix`.
+headless_package="$MIX_HEADLESS_ARTIFACT-headless"
+sed -e "s/@VERSION@/$version/" -e "s/@ARCH@/$arch/" -e "s%@BINDIR@%$MIX_INSTALL_LINUX%g" \
+  "$MIX_ROOT/packaging/linux/$headless_package.spec.in" \
+  >"$build/SPECS/$headless_package.spec"
+
+rpmbuild --define "_topdir $build" --target "$arch" -bb "$build/SPECS/$headless_package.spec"
+
+headless_name="$headless_package-$version-1.$arch.rpm"
+rm -f "$dist/$headless_name"
+cp "$build/RPMS/$arch/$headless_name" "$dist/$headless_name"
+
+contents="$(rpm -qlp "$dist/$headless_name")"
+for expected in \
+  $MIX_INSTALL_LINUX/mix \
+  $MIX_INSTALL_LINUX/mixengined \
+  $MIX_INSTALL_LINUX/mixengine-shim \
+  $MIX_INSTALL_LINUX/mixengine-elevate \
+  /usr/local/libexec/mixengine/mixengine-elevate; do
+  printf '%s\n' "$contents" | grep -qx "$expected" || {
+    echo "$expected is not in the headless package" >&2
+    exit 1
+  }
+done
+if printf '%s\n' "$contents" | grep -q 'mixlab'; then
+  echo "the headless package carries the window:" >&2
+  printf '%s\n' "$contents" >&2
+  exit 1
+fi
+if rpm -qp --requires "$dist/$headless_name" 2>/dev/null | grep -q webkit; then
+  echo "the headless package requires WebKitGTK" >&2
+  exit 1
+fi
+rpm -qp --conflicts "$dist/$headless_name" 2>/dev/null | grep -qx "$MIX_ARTIFACT" || {
+  echo "the headless package does not conflict with $MIX_ARTIFACT" >&2
+  exit 1
+}
+rpm -qp --conflicts "$dist/$name" 2>/dev/null | grep -qx "$headless_package" || {
+  echo "the package does not conflict with $headless_package" >&2
+  exit 1
+}
+
+mix_checksum "$dist/$headless_name"
+alias_headless="$(mix_publish_alias "$dist/$headless_name" "$headless_package-$arch.rpm")"
+
+echo "$dist/$headless_name"
+echo "$alias_headless"
