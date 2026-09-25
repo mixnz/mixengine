@@ -55,8 +55,9 @@ names that never includes the window. An update still adds nothing.**
    `.new`, is logged, and changes nothing else; T185's fallback keeps `bin/` working.
 6. **What it leaves behind.** The staging directory of the running version belongs to the first
    start of that version. It is removed once the completion step has nothing left to do, and kept
-   when a completion failed, so the next start can try again. The names that were added are
-   recorded in the store.
+   only when a copy failed on the install's side, so the next start can try again; a payload that
+   is another build or the wrong shape is removed, because it would fail the same way every time.
+   The names that were added are recorded in the store.
 7. **Uninstall.** `mix uninstall` removes the names that record lists, and only from a
    `SelfUpdatable` copy. Whoever placed a file removes it, which is 0048's rule. An old
    `uninstall.exe` then finds nothing it does not know, and its `RMDir` succeeds.

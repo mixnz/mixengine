@@ -25,6 +25,10 @@ pub struct Completed {
     pub added: Vec<String>,
     /// Names that were missing and are still missing, with why.
     pub failed: Vec<(String, String)>,
+    /// Whether another start could do better with the same payload: only a copy that failed on the
+    /// install's side. Another build, the wrong shape or a name the payload does not carry will
+    /// fail the same way every time, so the caller need not keep the payload for them.
+    pub worth_retrying: bool,
 }
 
 /// The [`COMPLETABLE`] names with no file beside the program in `directory`.
@@ -65,9 +69,21 @@ pub fn complete(directory: &Path, staged: &Path, running: &Path) -> Completed {
     }
 
     for name in missing {
-        match copy_in(&payload.join(executable(name)), directory, name) {
+        let source = payload.join(executable(name));
+
+        if !source.is_file() {
+            completed
+                .failed
+                .push((name.to_owned(), "the payload does not carry it".to_owned()));
+            continue;
+        }
+
+        match copy_in(&source, directory, name) {
             Ok(()) => completed.added.push(name.to_owned()),
-            Err(why) => completed.failed.push((name.to_owned(), why)),
+            Err(why) => {
+                completed.failed.push((name.to_owned(), why));
+                completed.worth_retrying = true;
+            }
         }
     }
 
@@ -103,10 +119,6 @@ fn same_bytes(left: &Path, right: &Path) -> bool {
 
 /// Copied beside and renamed into place, so no reader ever meets half a program.
 fn copy_in(source: &Path, directory: &Path, name: &str) -> Result<(), String> {
-    if !source.is_file() {
-        return Err("the payload does not carry it".to_owned());
-    }
-
     let target = directory.join(executable(name));
     let staging = directory.join(format!("{name}.new{}", std::env::consts::EXE_SUFFIX));
 
@@ -309,5 +321,38 @@ mod tests {
             std::fs::read(fixture.trampoline()).expect("kept"),
             b"placed by an installer"
         );
+    }
+
+    /// A payload that will never do — another build, the wrong shape, a name it does not carry —
+    /// is not worth keeping for another start: the next one would fail the same way.
+    #[test]
+    fn a_payload_that_will_never_do_is_not_worth_retrying() {
+        let fixture = Fixture::new();
+        file(
+            &fixture.payload().join(format!("mixengined{EXE}")),
+            b"another daemon",
+        );
+
+        let completed = fixture.complete();
+        assert!(!completed.failed.is_empty());
+        assert!(!completed.worth_retrying, "{completed:?}");
+    }
+
+    /// A copy that failed on the install's side may succeed next time, so the payload is kept.
+    #[test]
+    fn a_copy_that_failed_is_worth_retrying() {
+        let fixture = Fixture::new();
+        // The install directory is gone from under the running daemon's path: nothing can be
+        // written into it, and the payload itself is fine.
+        let running = fixture
+            .root
+            .path()
+            .join(format!("elsewhere/mixengined{EXE}"));
+        file(&running, b"the daemon");
+        std::fs::remove_dir_all(fixture.directory()).expect("removed");
+
+        let completed = complete(&fixture.directory(), &fixture.staged(), &running);
+        assert_eq!(completed.failed.len(), 1, "{completed:?}");
+        assert!(completed.worth_retrying, "{completed:?}");
     }
 }

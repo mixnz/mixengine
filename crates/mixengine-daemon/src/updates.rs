@@ -569,8 +569,9 @@ impl Updates {
     ///
     /// Cheapest first: the placement, then a `stat` per completable name inside `complete`, then the
     /// staging directory; the hash only when all three say there is something to do. The staging
-    /// directory belongs to this start (ADR 0054, 6): removed when nothing is left to do, kept when
-    /// a completion failed so the next start can try again.
+    /// directory belongs to this start (ADR 0054, 6): removed when nothing is left to do or when what
+    /// failed would fail the same way again, kept only when a copy failed on the install's side so
+    /// the next start can try again.
     pub(crate) async fn complete_install(&self) -> Vec<String> {
         let updates::Placement::SelfUpdatable { directory } = &self.placement else {
             return Vec::new();
@@ -626,7 +627,7 @@ impl Updates {
             }
         }
 
-        if completed.failed.is_empty() {
+        if completed.failed.is_empty() || !completed.worth_retrying {
             let _ = tokio::fs::remove_dir_all(&staged).await;
         }
 
