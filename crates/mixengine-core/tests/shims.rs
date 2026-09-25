@@ -27,6 +27,12 @@ impl Fixture {
             extra: Vec::new(),
         };
 
+        // T185: on Windows what `bin/` is filled from is the trampoline, and the resolver beside it
+        // is only named in the pointer. Written once, because nothing here upgrades it.
+        if cfg!(windows) {
+            std::fs::write(fixture.resolver(), b"the resolver").expect("a resolver");
+        }
+
         fixture.publish(b"the shim, build one");
         fixture
     }
@@ -70,15 +76,28 @@ impl Fixture {
         self.root.path().join("bin")
     }
 
+    /// The file `bin/` is filled from: the trampoline on Windows since T185, the shim elsewhere.
     fn shim(&self) -> PathBuf {
+        let name = match cfg!(windows) {
+            true => shims::TRAMPOLINE,
+            false => shims::BINARY,
+        };
+
         self.root
             .path()
-            .join(format!("mixengine-shim{}", std::env::consts::EXE_SUFFIX))
+            .join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+    }
+
+    fn resolver(&self) -> PathBuf {
+        self.root
+            .path()
+            .join(format!("{}{}", shims::BINARY, std::env::consts::EXE_SUFFIX))
     }
 
     fn refresh(&self) -> shims::Refreshed {
-        shims::refresh(&self.bin(), &self.shim(), &self.extra)
-            .expect("a writable temporary directory")
+        let source = shims::source(&mixengined_in(self.root.path())).expect("the pair is there");
+
+        shims::refresh(&self.bin(), &source, &self.extra).expect("a writable temporary directory")
     }
 
     fn copy_of(&self, name: &str) -> PathBuf {
@@ -253,7 +272,7 @@ fn the_shim_is_found_beside_the_program_that_asks_for_it() {
         .join(format!("mixengined{}", std::env::consts::EXE_SUFFIX));
 
     assert_eq!(
-        shims::source(&mixengined).expect("beside it"),
+        shims::source(&mixengined).expect("beside it").placed,
         fixture.shim()
     );
 
@@ -365,4 +384,137 @@ fn one_name_is_written_once() {
         "{:?}",
         refreshed.commands
     );
+}
+
+/// A resolver and a trampoline side by side with distinct bytes, the way a Windows release ships
+/// them, and the `bin/` a refresh fills from them — T185.
+fn an_install_with_both() -> (tempfile::TempDir, PathBuf) {
+    let install = tempfile::tempdir().expect("a temporary directory");
+    let exe = std::env::consts::EXE_SUFFIX;
+
+    std::fs::write(
+        install.path().join(format!("mixengine-shim{exe}")),
+        b"resolver",
+    )
+    .expect("a resolver");
+    std::fs::write(
+        install.path().join(format!("mixengine-trampoline{exe}")),
+        b"trampoline",
+    )
+    .expect("a trampoline");
+
+    let bin = install.path().join("bin");
+    (install, bin)
+}
+
+fn mixengined_in(directory: &Path) -> PathBuf {
+    directory.join(format!("mixengined{}", std::env::consts::EXE_SUFFIX))
+}
+
+/// T185: on Windows each name is the trampoline, and `bin/` says where the resolver is.
+#[test]
+fn on_windows_bin_holds_the_trampoline_and_points_at_the_resolver() {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let (install, bin) = an_install_with_both();
+    let source = shims::source(&mixengined_in(install.path())).expect("both are there");
+
+    shims::refresh(&bin, &source, &[]).expect("refresh");
+
+    assert_eq!(
+        std::fs::read(bin.join("php.exe")).expect("php"),
+        b"trampoline"
+    );
+    assert_eq!(
+        std::fs::read_to_string(bin.join("mixengine-shim.path")).expect("the pointer"),
+        source.resolver.to_str().expect("a Unicode temporary path")
+    );
+}
+
+/// The pointer is not a stranger: a second refresh keeps it and reports nothing removed.
+#[test]
+fn a_second_refresh_keeps_the_pointer() {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let (install, bin) = an_install_with_both();
+    let source = shims::source(&mixengined_in(install.path())).expect("both are there");
+
+    shims::refresh(&bin, &source, &[]).expect("first");
+    let second = shims::refresh(&bin, &source, &[]).expect("second");
+
+    assert!(bin.join("mixengine-shim.path").is_file());
+    assert!(second.removed.is_empty(), "{second:?}");
+    assert!(second.written.is_empty(), "{second:?}");
+}
+
+/// **An install that updated itself onto T185 has no trampoline**, because an update never adds a
+/// binary the install did not have (`updates::apply::swap`, rule 1). `bin/` must still be filled:
+/// with the shim itself, as before T185 — heavier, and every command still works.
+#[test]
+fn on_windows_an_install_without_the_trampoline_fills_bin_with_the_shim() {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let install = tempfile::tempdir().expect("a temporary directory");
+    std::fs::write(install.path().join("mixengine-shim.exe"), b"resolver").expect("a resolver");
+    let bin = install.path().join("bin");
+
+    let source = shims::source(&mixengined_in(install.path())).expect("the shim alone is enough");
+    assert_eq!(source.placed, source.resolver);
+
+    shims::refresh(&bin, &source, &[]).expect("refresh");
+    assert_eq!(
+        std::fs::read(bin.join("php.exe")).expect("php"),
+        b"resolver"
+    );
+}
+
+/// And the trampoline is still what a full install gets, once it has one: the next start after a
+/// reinstall moves `bin/` over to it.
+#[test]
+fn on_windows_a_trampoline_that_arrives_later_replaces_the_shim_copies() {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let install = tempfile::tempdir().expect("a temporary directory");
+    std::fs::write(install.path().join("mixengine-shim.exe"), b"resolver").expect("a resolver");
+    let bin = install.path().join("bin");
+    let mixengined = mixengined_in(install.path());
+
+    shims::refresh(&bin, &shims::source(&mixengined).expect("shim"), &[]).expect("first");
+    std::fs::write(
+        install.path().join("mixengine-trampoline.exe"),
+        b"trampoline",
+    )
+    .expect("a trampoline");
+    shims::refresh(&bin, &shims::source(&mixengined).expect("both"), &[]).expect("second");
+
+    assert_eq!(
+        std::fs::read(bin.join("php.exe")).expect("php"),
+        b"trampoline"
+    );
+}
+
+/// Unix is unchanged: the resolver under every name, and no pointer.
+#[test]
+fn elsewhere_bin_is_the_resolver_and_there_is_no_pointer() {
+    if cfg!(windows) {
+        return;
+    }
+
+    let install = tempfile::tempdir().expect("a temporary directory");
+    std::fs::write(install.path().join("mixengine-shim"), b"resolver").expect("a resolver");
+    let bin = install.path().join("bin");
+
+    let source = shims::source(&mixengined_in(install.path())).expect("the shim is there");
+    shims::refresh(&bin, &source, &[]).expect("refresh");
+
+    assert_eq!(std::fs::read(bin.join("php")).expect("php"), b"resolver");
+    assert!(!bin.join("mixengine-shim.path").exists());
 }

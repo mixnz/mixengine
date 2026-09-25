@@ -1860,6 +1860,15 @@ async fn serve(
     )
     .map_err(|error| anyhow::anyhow!("{error}"))?;
 
+    // T185a: before the update records are read, which `restore_after_update` does further down.
+    // `bin/` was filled a few hundred lines up without what was missing, so when anything was added
+    // it is filled again.
+    if !updates.complete_install().await.is_empty()
+        && let Err(error) = shims.refresh().await
+    {
+        tracing::warn!(%error, "bin/ could not be refreshed after the install completed itself");
+    }
+
     if sources.feed.url != mixengine_core::updates::DEFAULT_URL {
         // Worth its own line, and worth more than the index's: from here on this daemon would take
         // the binaries it runs as itself from a publisher that is not us.

@@ -65,6 +65,8 @@ pub mod mock;
 pub mod occupants;
 pub mod paths;
 // Documented by its own `//!` header. Under both features for `hosts`' reason.
+#[cfg(feature = "handover")]
+pub mod handover;
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub mod port_access;
 #[cfg(feature = "process")]

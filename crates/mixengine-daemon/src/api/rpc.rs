@@ -2597,6 +2597,15 @@ mod tests {
             b"the shim, as far as a copy is concerned",
         )
         .expect("a file in a temporary home");
+        // What `bin/` is filled from on Windows since T185, and harmless beside it elsewhere.
+        std::fs::write(
+            installed.join(format!(
+                "mixengine-trampoline{}",
+                std::env::consts::EXE_SUFFIX
+            )),
+            b"the trampoline, as far as a copy is concerned",
+        )
+        .expect("a file in a temporary home");
 
         let host = Arc::new(machine(paths.root().to_path_buf()));
 
@@ -2640,6 +2649,24 @@ mod tests {
         );
 
         let armed = Arc::new(super::super::Armed::default());
+
+        // Pointed at a URL nothing answers on, which is the state these tests want: every one of
+        // them asks what a daemon that has never read a feed says, and a fixture that could reach
+        // the published one would be a test suite with an opinion about the network. Built before
+        // `Api` because the uninstall reads it too (T185a).
+        let updates = crate::updates::Updates::new(
+            &paths,
+            &store,
+            &feed.unwrap_or_else(|| crate::updates::FeedSource {
+                url: "http://127.0.0.1:1/latest.json".to_owned(),
+                public_key: mixengine_core::updates::PUBLIC_KEY.to_owned(),
+            }),
+            Some(&installed.join(format!("mixengined{}", std::env::consts::EXE_SUFFIX))),
+            Arc::clone(&host) as Arc<dyn mixengine_platform::Host>,
+            events.clone(),
+            transport.clone(),
+        )
+        .expect("the compiled-in updater key is a key");
 
         let api = Arc::new(Api {
             version: "0.1.0",
@@ -2741,6 +2768,7 @@ mod tests {
                         store.clone(),
                     ),
                     armed: Arc::clone(&armed),
+                    updates: Arc::clone(&updates),
                 },
                 &paths,
             ),
@@ -2758,22 +2786,7 @@ mod tests {
             ),
             shims,
             autostart,
-            // Pointed at a URL nothing answers on, which is the state these tests want: every one
-            // of them asks what a daemon that has never read a feed says, and a fixture that could
-            // reach the published one would be a test suite with an opinion about the network.
-            updates: crate::updates::Updates::new(
-                &paths,
-                &store,
-                &feed.unwrap_or_else(|| crate::updates::FeedSource {
-                    url: "http://127.0.0.1:1/latest.json".to_owned(),
-                    public_key: mixengine_core::updates::PUBLIC_KEY.to_owned(),
-                }),
-                Some(&installed.join(format!("mixengined{}", std::env::consts::EXE_SUFFIX))),
-                Arc::clone(&host) as Arc<dyn mixengine_platform::Host>,
-                events.clone(),
-                transport,
-            )
-            .expect("the compiled-in updater key is a key"),
+            updates: Arc::clone(&updates),
             elevation,
             dns: Arc::new(crate::dns::Dns::hosts_only_for_tests()),
             // A sampler whose loop is never started: these tests answer method calls, and a snapshot

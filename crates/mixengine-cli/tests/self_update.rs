@@ -33,8 +33,12 @@ use mixengine_testkit::{FakePackage, MockRegistry, Packing, Service};
 /// decision's "is it newer" is satisfied by a payload that is really this build.
 const OFFERED: &str = "99.0.0";
 
-/// The three names a release is made of.
-const BINARIES: [&str; 3] = ["mix", "mixengined", "mixengine-elevate"];
+/// The names this test's install is made of. `mixengine-shim` so that `bin/` can be filled at all.
+const BINARIES: [&str; 4] = ["mix", "mixengined", "mixengine-elevate", "mixengine-shim"];
+
+/// In the payload and not in the install: a binary a release gained, which an update does not add
+/// and the new daemon's first start does — T185a, ADR 0054.
+const GAINED: &str = "mixengine-trampoline";
 
 /// What the helper's stand-in holds: this test installs no privileged binary anywhere.
 const HELPER_STUB: &[u8] = b"not the elevated helper, and replaced by the update";
@@ -65,6 +69,11 @@ impl Installed {
         std::fs::copy(mix_binary(), directory.join(named("mix"))).expect("a copy of mix");
         std::fs::copy(daemon_binary(), directory.join(named("mixengined")))
             .expect("a copy of mixengined");
+        std::fs::copy(
+            built("mixengine-shim"),
+            directory.join(named("mixengine-shim")),
+        )
+        .expect("a copy of mixengine-shim");
         std::fs::write(directory.join(named("mixengine-elevate")), HELPER_STUB)
             .expect("a stand-in for the helper");
 
@@ -161,6 +170,22 @@ fn mix_binary() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_mix"))
 }
 
+/// A binary of this build beside `mix`, which a workspace build puts there.
+fn built(name: &str) -> PathBuf {
+    let path = mix_binary()
+        .parent()
+        .expect("the test binary has a directory")
+        .join(named(name));
+
+    assert!(
+        path.is_file(),
+        "{} is not there — run `cargo test --workspace` rather than `cargo test -p mixengine-cli`",
+        path.display()
+    );
+
+    path
+}
+
 fn daemon_binary() -> PathBuf {
     let daemon = mix_binary()
         .parent()
@@ -192,6 +217,9 @@ fn payload(installed: &Installed) -> mixengine_testkit::Packed {
             .unwrap_or_else(|error| panic!("copy {name} into the payload: {error}"));
     }
 
+    std::fs::copy(built(GAINED), inside.join(named(GAINED)))
+        .unwrap_or_else(|error| panic!("copy {GAINED} into the payload: {error}"));
+
     // `.tar.gz` on every system, which the client unpacks on every system. The real Windows payload
     // is a `.zip`; what differs between the two is the executable bit, which is a property of the
     // machine unpacking rather than of this sequence.
@@ -204,6 +232,7 @@ fn payload(installed: &Installed) -> mixengine_testkit::Packed {
 fn feed(url: &str, packed: &mixengine_testkit::Packed) -> serde_json::Value {
     let provides: serde_json::Map<String, serde_json::Value> = BINARIES
         .iter()
+        .chain(std::iter::once(&GAINED))
         .map(|name| {
             (
                 (*name).to_owned(),
@@ -297,15 +326,11 @@ async fn an_update_replaces_the_binaries_relaunches_and_starts_what_was_running(
     // current when the daemon next installs the privileged copy from it.
     assert_eq!(
         applied["replaced"],
-        serde_json::json!(["mix", "mixengine-elevate", "mixengined"]),
+        serde_json::json!(["mix", "mixengine-elevate", "mixengine-shim", "mixengined"]),
         "the swap replaced something other than the binaries an update replaces: {applied}"
     );
-    assert!(
-        applied["kept"]
-            .as_array()
-            .is_none_or(|kept| kept.is_empty()),
-        "{applied}"
-    );
+    // An update still adds nothing (ADR 0054): the binary the release gained is kept by the swap.
+    assert_eq!(applied["kept"], serde_json::json!([GAINED]), "{applied}");
     assert_eq!(
         applied["restarting"],
         serde_json::json!(["fakeservice@main"]),
@@ -322,6 +347,32 @@ async fn an_update_replaces_the_binaries_relaunches_and_starts_what_was_running(
         stdout(&after),
         home.daemon_log()
     );
+
+    // **T185a: the install completed itself.** The swap kept the trampoline out; the new daemon's
+    // first start copied it in from the payload it was updated from, whose `mixengined` is this
+    // one byte for byte, and then removed the staging directory it no longer needs.
+    assert!(
+        installed.binary(GAINED).is_file(),
+        "the install did not complete itself from its payload\n--- daemon.log ---\n{}",
+        home.daemon_log()
+    );
+    assert!(
+        std::fs::read_dir(home.path().join("cache").join("updates"))
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(true),
+        "the staging directory outlived the completion that needed it"
+    );
+
+    // And on Windows `bin/` is made of it now rather than of copies of the shim (T185).
+    if cfg!(windows) {
+        let trampoline = std::fs::metadata(installed.binary(GAINED)).expect("the trampoline");
+        let php = std::fs::metadata(home.path().join("bin").join(named("php"))).expect("bin/php");
+        assert_eq!(
+            php.len(),
+            trampoline.len(),
+            "bin/ was not refreshed from the trampoline"
+        );
+    }
 
     // **What was running is running.** The restore is the daemon's own pass over the list the stop
     // produced, so what this asserts is the property `docs/features/updates.md` states:

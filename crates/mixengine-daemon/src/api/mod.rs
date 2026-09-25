@@ -579,6 +579,7 @@ impl Api {
                 elevation: Arc::clone(&elevation),
                 certificates: certificates.clone(),
                 armed: Arc::clone(&armed),
+                updates: Arc::clone(&updates),
             },
             paths,
         );

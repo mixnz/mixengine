@@ -34,6 +34,8 @@ pub(crate) mod path;
 // Writing a file only this account may read: `open(2)` carries the mode, which is POSIX and
 // identical on both systems. `windows/` has its own, and it is a different shape rather than a
 // different constant — see either module.
+#[cfg(feature = "handover")]
+pub(crate) mod handover;
 #[cfg(feature = "host")]
 pub(crate) mod private_file;
 #[cfg(feature = "process")]

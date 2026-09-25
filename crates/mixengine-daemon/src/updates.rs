@@ -560,6 +560,80 @@ impl Updates {
         }
     }
 
+    /// Complete this install from the payload it was updated from — roadmap task **T185a**,
+    /// ADR 0054. Answers the names it added.
+    ///
+    /// **Before [`Self::restore_after_update`]**, because the staging directory is named after the
+    /// version the feed declared, which only the `APPLIED` record still knows; with no record it is
+    /// the running version's. The hash `complete` checks is what ties the payload to this build.
+    ///
+    /// Cheapest first: the placement, then a `stat` per completable name inside `complete`, then the
+    /// staging directory; the hash only when all three say there is something to do. The staging
+    /// directory belongs to this start (ADR 0054, 6): removed when nothing is left to do or when what
+    /// failed would fail the same way again, kept only when a copy failed on the install's side so
+    /// the next start can try again.
+    pub(crate) async fn complete_install(&self) -> Vec<String> {
+        let updates::Placement::SelfUpdatable { directory } = &self.placement else {
+            return Vec::new();
+        };
+        let Some(running) = self.daemon_exe.clone() else {
+            return Vec::new();
+        };
+
+        let applied: Option<updates::records::Applied> =
+            read(&self.store, updates::records::APPLIED).await;
+        let version = applied.map_or_else(
+            || env!("CARGO_PKG_VERSION").to_owned(),
+            |applied| applied.to,
+        );
+        let staged = self.staging_for(&version);
+
+        if !staged.is_dir() {
+            return Vec::new();
+        }
+
+        let (directory, from) = (directory.clone(), staged.clone());
+        let completed = crate::api::on_a_blocking_thread(move || {
+            Ok(updates::complete::complete(&directory, &from, &running))
+        })
+        .await
+        .unwrap_or_default();
+
+        for (name, why) in &completed.failed {
+            tracing::warn!(
+                name,
+                why,
+                "the install could not complete itself from its payload"
+            );
+        }
+
+        if !completed.added.is_empty() {
+            tracing::info!(added = ?completed.added, "the install completed itself from its payload");
+
+            let mut recorded: Vec<String> = read(&self.store, updates::records::COMPLETED)
+                .await
+                .unwrap_or_default();
+
+            for name in &completed.added {
+                if !recorded.contains(name) {
+                    recorded.push(name.clone());
+                }
+            }
+
+            if let Err(error) =
+                updates::records::set(&self.store, updates::records::COMPLETED, &recorded).await
+            {
+                tracing::warn!(%error, "what the install added to itself could not be recorded");
+            }
+        }
+
+        if completed.failed.is_empty() || !completed.worth_retrying {
+            let _ = tokio::fs::remove_dir_all(&staged).await;
+        }
+
+        completed.added
+    }
+
     /// The pass a daemon makes at start when the one before it replaced these binaries.
     ///
     /// Four things, in this order:

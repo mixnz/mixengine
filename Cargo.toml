@@ -10,6 +10,7 @@ members = [
     "crates/mixengine-docs",
     "crates/mixengine-cli",
     "crates/mixengine-shim",
+    "crates/mixengine-trampoline",
     "crates/mixengine-testkit",
 ]
 # Two crates here are workspaces of their own and never members — ADR 0027 rule 5 for the desktop
@@ -397,6 +398,14 @@ lto = "thin"
 strip = "debuginfo"
 # `panic = "abort"` must never be set: the RPC layer catches a panic per request and returns
 # `internal` instead of taking every managed service down with it.
+
+# **T185: the one binary built for size.** `<root>/bin` holds a copy of it per command name on
+# Windows, so a byte here is paid dozens of times. A package override cannot set `lto` or `panic`,
+# and `[profile.release]` keeps `panic = "unwind"` for the daemon's sake — this is what is left.
+[profile.release.package.mixengine-trampoline]
+opt-level = "z"
+strip = "symbols"
+codegen-units = 1
 
 # **The compressors and the hash run optimised even in a debug build (T170c).** The real-server
 # suites pack a distribution of several hundred megabytes into an archive, and the daemon unpacks and

@@ -59,6 +59,10 @@ const ALLOWED_EDGES: &[(&str, &[&str])] = &[
         "mixengine-shim",
         &["mixengine-core", "mixengine-platform", "mixengine-proto"],
     ),
+    // What `<root>/bin` holds per command name on Windows (T185), and so the one binary whose size
+    // is paid dozens of times over. `platform` alone, and only its `handover` feature: anything
+    // else here would be a copy of it in every name.
+    ("mixengine-trampoline", &["mixengine-platform"]),
     // Fixtures, and nothing a user runs. It may depend on `platform` because `fakeservice` reaches
     // the same `Signals` and `spawn_detached` the daemon does — using them rather than reimplementing
     // them is what keeps a `#[cfg]` out of the fixture. Nothing may depend on *it* except as a
@@ -152,6 +156,7 @@ const NO_OS_CFG: &[&str] = &[
     "mixengine-proto",
     "mixengine-shim",
     "mixengine-supervisor",
+    "mixengine-trampoline",
 ];
 
 /// The files that may hold one anyway, and what it is for.

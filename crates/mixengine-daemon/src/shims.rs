@@ -326,6 +326,9 @@ impl Shims {
             // A copy a Windows refresh could not overwrite and moved out of the way. It is rubbish
             // the next sweep collects, not a command anybody can type.
             .filter(|name| !name.ends_with(shims::MOVED_ASIDE))
+            // Where the Windows trampolines find the resolver (T185): MixEngine's own file, and
+            // not a name anybody types.
+            .filter(|name| !name.starts_with(mixengine_platform::handover::RESOLVER_POINTER))
             .collect();
 
         let same = |left: &str, right: &str| match cfg!(windows) {

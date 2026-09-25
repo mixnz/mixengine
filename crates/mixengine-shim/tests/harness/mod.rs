@@ -131,6 +131,36 @@ impl Home {
         self.fill_bin_also_fronting(&[name]);
     }
 
+    /// Fill `bin/` from copies of this build's shim and trampoline put in `install` — T185.
+    ///
+    /// For a test that replaces the resolver while a program is running, which it may not do to the
+    /// build directory every other test is reading from.
+    pub(crate) fn fill_bin_from(&self, install: &Path) -> shims::Refreshed {
+        let built = Path::new(env!("CARGO_BIN_EXE_mixengine-shim"))
+            .parent()
+            .expect("the build directory");
+
+        for name in [shims::BINARY, shims::TRAMPOLINE] {
+            let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+
+            // The trampoline is only needed, and only required to be built, on Windows.
+            if built.join(&file).is_file() {
+                std::fs::copy(built.join(&file), install.join(&file))
+                    .unwrap_or_else(|error| panic!("copy {file} into the test's install: {error}"));
+            }
+        }
+
+        let source = shims::source(&install.join("mixengined")).expect("both copied");
+        let bin = self.path().join("bin");
+
+        // Emptied first: `fs::copy` keeps the modification time on Windows, so a `bin/` already
+        // filled from the build directory would look current and keep naming *those* files.
+        shims::clear(&bin).expect("bin/ can be emptied");
+
+        shims::refresh(&bin, &source, &self.client_extras())
+            .expect("bin/ can be filled in a temporary home")
+    }
+
     fn fill_bin_also_fronting(&self, names: &[&str]) -> shims::Refreshed {
         let mut extra = self.client_extras();
 
@@ -141,12 +171,8 @@ impl Home {
             },
         }));
 
-        shims::refresh(
-            &self.path().join("bin"),
-            Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
-            &extra,
-        )
-        .expect("bin/ can be filled in a temporary home")
+        shims::refresh(&self.path().join("bin"), &built_source(), &extra)
+            .expect("bin/ can be filled in a temporary home")
     }
 
     /// The client commands of the installed service packages — roadmap task **T130**.
@@ -342,12 +368,8 @@ impl Home {
         let mut extra = self.client_extras();
         extra.extend(globals);
 
-        shims::refresh(
-            &self.path().join("bin"),
-            Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
-            &extra,
-        )
-        .expect("bin/ can be filled in a temporary home")
+        shims::refresh(&self.path().join("bin"), &built_source(), &extra)
+            .expect("bin/ can be filled in a temporary home")
     }
 
     /// A service package on disk and in the database, optionally with one instance of it.
@@ -752,4 +774,24 @@ fn dumped(path: &Path) -> BTreeMap<String, String> {
         .filter_map(|line| line.split_once('='))
         .map(|(name, value)| (name.to_owned(), value.to_owned()))
         .collect()
+}
+
+/// What this build fills `bin/` from: the shim, and on Windows the trampoline beside it (T185).
+///
+/// `cargo test -p mixengine-shim` builds this package's binary and no other, so on Windows the
+/// trampoline is there only after a workspace build or its own — the message says which.
+pub(crate) fn built_source() -> shims::Source {
+    let source = shims::source(Path::new(env!("CARGO_BIN_EXE_mixengine-shim")))
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    // `shims::source` falls back to the shim when there is no trampoline, which is right for an
+    // updated install and wrong here: this suite would then test the layout T185 replaced.
+    assert!(
+        !cfg!(windows) || source.placed != source.resolver,
+        "no mixengine-trampoline beside {} — run `cargo build -p mixengine-trampoline` first, or \
+         `cargo test --workspace`",
+        source.resolver.display()
+    );
+
+    source
 }

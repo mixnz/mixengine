@@ -53,6 +53,8 @@ pub(crate) mod port_access;
 mod ports;
 // Writing a file only this account may read. Its own rather than `unix/`'s, and not a reuse of
 // `access` either: the inherit flags that method grants are directory-only.
+#[cfg(feature = "handover")]
+pub(crate) mod handover;
 #[cfg(feature = "host")]
 pub(crate) mod private_file;
 #[cfg(feature = "process")]
@@ -72,9 +74,9 @@ pub(crate) mod replace;
 pub(crate) mod firewall;
 #[cfg(feature = "host")]
 mod firewall_rules;
-#[cfg(any(feature = "host", feature = "elevated"))]
 #[cfg(feature = "host")]
 mod reserved;
+#[cfg(any(feature = "host", feature = "elevated"))]
 pub(crate) mod resolver;
 // Every unsafe call T49a makes, in one file — see its header.
 #[cfg(feature = "host")]

@@ -45,6 +45,7 @@ install -m 0755 %{_sourcedir}/mix %{buildroot}@BINDIR@/mix
 install -m 0755 %{_sourcedir}/mixengined %{buildroot}@BINDIR@/mixengined
 # Beside `mixengined`, which is the only place `core::shims::source` looks — T85c.
 install -m 0755 %{_sourcedir}/mixengine-shim %{buildroot}@BINDIR@/mixengine-shim
+install -m 0755 %{_sourcedir}/mixengine-trampoline %{buildroot}@BINDIR@/mixengine-trampoline
 # The same path the .deb writes and the same one `mixengine_platform::install::helper_path()`
 # returns — the T85 design, D3.
 install -m 0755 %{_sourcedir}/mixengine-elevate \
@@ -71,6 +72,7 @@ install -m 0644 %{_sourcedir}/mixlab-128.png \
 @BINDIR@/mix
 @BINDIR@/mixengined
 @BINDIR@/mixengine-shim
+@BINDIR@/mixengine-trampoline
 @BINDIR@/mixengine-elevate
 @BINDIR@/mixlab
 /usr/local/libexec/mixengine/mixengine-elevate

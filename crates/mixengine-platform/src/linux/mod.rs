@@ -28,6 +28,9 @@ mod machine;
 pub(crate) mod port_access;
 #[cfg(feature = "host")]
 mod ports;
+// Becoming another program — T185. `unix/`'s, because `exec` is the same call on both.
+#[cfg(feature = "handover")]
+pub(crate) use crate::unix::handover;
 // Letting go of an unattended console: `unix/`'s, because on both systems it is nothing —
 // T85b.
 #[cfg(feature = "process")]
@@ -49,9 +52,9 @@ pub(crate) mod browsers;
 pub(crate) mod firewall;
 #[cfg(feature = "host")]
 mod firewall_rules;
-#[cfg(any(feature = "host", feature = "elevated"))]
 #[cfg(feature = "host")]
 mod reserved;
+#[cfg(any(feature = "host", feature = "elevated"))]
 pub(crate) mod resolver;
 pub(crate) mod trust;
 // Reading one `keyring` failure, which `crate::secrets` cannot do for all three systems at once —

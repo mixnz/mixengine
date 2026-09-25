@@ -61,8 +61,11 @@ is resolved against installed versions — **never** silently against downloadab
 2. Calls `resolve` (in-process, reading SQLite read-only + walking for `mixengine.toml`) — **no IPC**,
    so it stays fast even when the daemon is down. Target: **< 15 ms** overhead, enforced by a bench.
 3. `exec`s the real binary with the correct `PATH`, `PHPRC`, `GEM_HOME`, etc. prepended.
-   On Windows there is no `exec`: spawn the child in the same Job Object and proxy the exit code and
-   console signals.
+   On Windows there is no `exec`, and what is in `bin/` is not the shim but a **trampoline**
+   (`mixengine-trampoline`, T185): it runs `mixengine-shim` — found through
+   `bin/mixengine-shim.path` — for the resolution only, then starts the program itself in a Job
+   Object, proxying the exit code and console signals. The shim's resolution is unchanged; only the
+   few hundred KB that outlive it are copied per name.
 4. **A row may name a `via` kind** (T27c): `composer` resolves a Composer for the file and a PHP for
    the program — each under its own override variable — and hands the PHP `composer.phar` as its
    first argument, with the PHP's own environment.
@@ -71,8 +74,11 @@ Only `<root>/bin` goes on the user's PATH — one entry, never per-version direc
 is filled by the daemon at every start — a hard link to
 the shim binary wherever the filesystem gives one file a second name, and a copy of its bytes where
 it does not, which on Windows is always: a shim there outlives the program it starts, so a link would
-let a running `php -S` hold the shim binary itself open against the next upgrade. Either way the file
-in `bin/` dispatches on the name it was invoked by. Putting the directory on the PATH is
+let a running `php -S` hold the shim binary itself open against the next upgrade. On Windows those
+copies are of the trampoline (~360 KB) rather than the shim (~5.6 MB), which took a 38-command
+`bin/` from about 223 MB to about 14 MB (T185); an install that updated itself onto that release
+gets the trampoline at its first start (T185a). Either way the file in `bin/` dispatches on the name
+it was invoked by. Putting the directory on the PATH is
 `path.install`, which is asked for rather than assumed, and
 `path.uninstall` reverses it.
 
