@@ -148,7 +148,8 @@ fn a_generated_file_that_was_edited_by_hand_stops_matching_its_row() {
 
     assert!(
         stale(&home),
-        "editing a generated file by hand was not noticed: {}",
+        "editing a generated file by hand was not noticed; the file now holds {:?}: {}",
+        std::fs::read_to_string(&rendered),
         stdout(&home.mix(&["doctor"]))
     );
 }
@@ -183,7 +184,9 @@ fn a_generated_file_that_was_edited_by_hand_is_put_back() {
 
     assert!(
         stale(&home),
-        "editing a generated file by hand was not noticed"
+        "editing a generated file by hand was not noticed; the file now holds {:?}: {}",
+        std::fs::read_to_string(&rendered),
+        stdout(&home.mix(&["doctor"]))
     );
 
     let repaired = stdout(&home.mix(&["doctor", "--repair"]));
