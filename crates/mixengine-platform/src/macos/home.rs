@@ -19,10 +19,7 @@ pub(crate) struct Home;
 
 impl HomeDirs for Home {
     fn default_home(&self) -> Result<PathBuf> {
-        let base = BaseDirs::new().ok_or(Error::NoHomeDirectory {
-            reason: "$HOME is not set",
-        })?;
-        Ok(base.data_dir().join(NAME))
+        default_home()
     }
 
     /// Anything under `/Volumes/` is TCC's to gate, and the helper cannot be granted it — T166.
@@ -39,6 +36,14 @@ impl HomeDirs for Home {
             Err(_) => true,
         }
     }
+}
+
+/// The platform default, with no `Host` behind it — [`crate::home::default_home`]'s answer.
+pub(crate) fn default_home() -> Result<PathBuf> {
+    let base = BaseDirs::new().ok_or(Error::NoHomeDirectory {
+        reason: "$HOME is not set",
+    })?;
+    Ok(base.data_dir().join(NAME))
 }
 
 /// Where macOS mounts every volume that is not the boot volume.

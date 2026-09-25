@@ -202,12 +202,10 @@ fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
     }
 
     let home = home_override().map(PathBuf::from);
-    let root = paths::resolve_root(home.as_deref(), mixengine_platform::host().as_ref()).map_err(
-        |error| Refusal {
-            said: explain(&error),
-            hint: None,
-        },
-    )?;
+    let root = paths::resolve_root_default(home.as_deref()).map_err(|error| Refusal {
+        said: explain(&error),
+        hint: None,
+    })?;
 
     let database = Paths::new(root.clone(), &PathOverrides::default())
         .database_file()
@@ -625,12 +623,10 @@ fn trusting(kind: RuntimeKind, paths: &Paths, environment: &mut BTreeMap<String,
 /// still standing behind it.
 fn resolved(kind: RuntimeKind, executable: &str) -> Result<Resolution, Refusal> {
     let home = home_override().map(PathBuf::from);
-    let root = paths::resolve_root(home.as_deref(), mixengine_platform::host().as_ref()).map_err(
-        |error| Refusal {
-            said: explain(&error),
-            hint: None,
-        },
-    )?;
+    let root = paths::resolve_root_default(home.as_deref()).map_err(|error| Refusal {
+        said: explain(&error),
+        hint: None,
+    })?;
 
     // `[paths]` cannot move the database — `Paths` passes `None` for it deliberately — so the
     // defaults are enough to name the one file this reads, and `config.toml` is not opened at all.

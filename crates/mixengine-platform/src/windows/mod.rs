@@ -25,7 +25,7 @@ pub(crate) mod console;
 pub(crate) mod elevated;
 pub(crate) mod fullname;
 #[cfg(feature = "host")]
-mod home;
+pub(crate) mod home;
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub(crate) mod hosts;
 // Where the privileged helper is installed — T85. Under both features because both sides ask it.

@@ -13,7 +13,7 @@ pub(crate) mod cgroup;
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub(crate) mod elevated;
 #[cfg(feature = "host")]
-mod home;
+pub(crate) mod home;
 // Where the privileged helper is installed — T85. Under both features because both sides ask it.
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub(crate) mod install;
