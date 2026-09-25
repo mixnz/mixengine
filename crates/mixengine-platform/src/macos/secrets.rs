@@ -20,6 +20,34 @@ pub(crate) fn absent_store(source: &KeyringError) -> Option<&'static str> {
     )
 }
 
+/// The keys under `service` — T186.
+///
+/// **Attributes only, never data**, so the Keychain has nothing to ask about: listing is not
+/// reading a secret, whatever program does it.
+pub(crate) fn keys(service: &str) -> Result<Vec<String>, KeyringError> {
+    use security_framework::item::{ItemClass, ItemSearchOptions, Limit, SearchResult};
+
+    /// `errSecItemNotFound`: nothing under this service.
+    const NOT_FOUND: i32 = -25300;
+
+    let found = ItemSearchOptions::new()
+        .class(ItemClass::generic_password())
+        .service(service)
+        .load_attributes(true)
+        .limit(Limit::All)
+        .search();
+
+    match found {
+        Ok(results) => Ok(results
+            .iter()
+            .filter_map(SearchResult::simplify_dict)
+            .filter_map(|mut attributes| attributes.remove("acct"))
+            .collect()),
+        Err(error) if error.code() == NOT_FOUND => Ok(Vec::new()),
+        Err(error) => Err(KeyringError::PlatformFailure(Box::new(error))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

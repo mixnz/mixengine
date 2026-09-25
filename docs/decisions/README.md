@@ -54,6 +54,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0052](0052-a-build-that-is-not-a-release-keeps-its-own-credentials.md) | A build that is not a release keeps its credentials in its home, not in the OS store | Accepted |
 | [0053](0053-the-helper-has-its-own-version-and-follows-the-product.md) | The helper has its own version and follows the product through the daemon | Accepted |
 | [0054](0054-an-install-completes-itself-from-its-own-payload.md) | An install completes itself from its own payload; an update still adds nothing | Accepted |
+| [0055](0055-the-daemons-credentials-are-one-keychain-item-per-home-on-macos.md) | The daemon's credentials are one Keychain item per home on macOS | Accepted |
 
 ### Desktop (recorded in MixDB)
 

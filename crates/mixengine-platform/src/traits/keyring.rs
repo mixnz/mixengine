@@ -65,4 +65,15 @@ pub trait Keyring: std::fmt::Debug + Send + Sync {
     ///
     /// As [`secret`](Self::secret).
     fn forget_secret(&self, service: &str, key: &str) -> Result<()>;
+
+    /// The keys stored under `service`, never their secrets — roadmap task **T186**.
+    ///
+    /// **The one question the `keyring` crate cannot answer**, and the one an uninstall has to: it
+    /// removes what is there, and it can only remove what it can name. The order is unspecified and
+    /// no key appears twice.
+    ///
+    /// # Errors
+    ///
+    /// As [`secret`](Self::secret).
+    fn keys(&self, service: &str) -> Result<Vec<String>>;
 }

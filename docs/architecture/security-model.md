@@ -179,7 +179,8 @@ runs through the copy beside the program. The residual below states what that co
   SSID/subnet) and never applies to database ports — the API refuses that combination, so no
   client can offer it.
 - Generated DB instances get a random 32-char root password stored in the OS keyring, not a blank
-  password. `mix database credentials <id>` reveals it on demand (T77b), the one method built to
+  password. On macOS one Keychain item per home holds all of them, so an update asks once
+  ([ADR 0055](../decisions/0055-the-daemons-credentials-are-one-keychain-item-per-home-on-macos.md)). `mix database credentials <id>` reveals it on demand (T77b), the one method built to
   answer a credential rather than only its address — see
   [ADR 0025](../decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md).
 

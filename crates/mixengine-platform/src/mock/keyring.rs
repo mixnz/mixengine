@@ -127,6 +127,21 @@ impl Keyring for Secrets {
 
         Ok(())
     }
+
+    fn keys(&self, service: &str) -> Result<Vec<String>> {
+        if let Some(error) = self.unavailable() {
+            return Err(error);
+        }
+
+        let mut keys: Vec<String> = lock(&self.stored)
+            .keys()
+            .filter(|(stored, _)| stored == service)
+            .map(|(_, key)| key.clone())
+            .collect();
+        keys.sort();
+
+        Ok(keys)
+    }
 }
 
 /// A poisoned lock means an assertion already failed on another thread; there is nothing left for

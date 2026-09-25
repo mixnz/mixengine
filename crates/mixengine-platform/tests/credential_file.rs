@@ -170,3 +170,37 @@ fn source_chain(error: &dyn std::error::Error) -> String {
     }
     parts.join(": ")
 }
+
+/// T186: the keys under one service, and none of another's.
+#[test]
+fn keys_lists_one_service_and_never_another() {
+    let directory = tempfile::tempdir().expect("a directory");
+    let (host, _) = store(&directory);
+
+    host.keyring()
+        .set_secret(SERVICE, KEY, "a")
+        .expect("a write");
+    host.keyring()
+        .set_secret(SERVICE, "0123456789ab/postgres@main/postgres", "b")
+        .expect("a write");
+    host.keyring()
+        .set_secret("elsewhere", "x", "c")
+        .expect("a write");
+
+    let mut keys = host.keyring().keys(SERVICE).expect("a listing");
+    keys.sort();
+
+    assert_eq!(
+        keys,
+        [
+            "0123456789ab/mariadb@main/root".to_owned(),
+            "0123456789ab/postgres@main/postgres".to_owned()
+        ]
+    );
+    assert!(
+        host.keyring()
+            .keys("nothing-here")
+            .expect("a listing")
+            .is_empty()
+    );
+}

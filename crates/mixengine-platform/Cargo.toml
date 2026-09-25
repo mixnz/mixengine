@@ -80,6 +80,8 @@ keyring = { workspace = true, optional = true, features = [
 [target.'cfg(target_os = "macos")'.dependencies]
 # The login Keychain, through Security.framework rather than by shelling out to `security`.
 keyring = { workspace = true, optional = true, features = ["apple-native"] }
+# T186: listing the Keychain, which `keyring` cannot do. Enabled by `host`, beside `keyring`.
+security-framework = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 # The Credential Manager, through the API rather than through `cmdkey`.
@@ -109,6 +111,8 @@ windows-sys = { workspace = true, features = [
     "Win32_Networking_WinSock",
     "Win32_Security",
     "Win32_Security_Authorization",
+    # T186: listing the Credential Manager, which `keyring` cannot do.
+    "Win32_Security_Credentials",
     # `FILE_SHARE_READ` for the single-instance lock, whose whole mechanism is the share mode it
     # refuses to grant a second daemon.
     "Win32_Storage_FileSystem",
@@ -192,6 +196,8 @@ host = [
     "dep:getrandom",
     "dep:if-addrs",
     "dep:keyring",
+    # T186: declared on macOS only, so naming it here is a no-op on the other two.
+    "dep:security-framework",
     "dep:mixengine-proto",
     # T49a's trust stores on macOS and Linux, which are made of PEM text. Declared per target
     # above, so naming it here activates it on those two and is a no-op on Windows —

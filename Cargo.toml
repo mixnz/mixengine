@@ -269,6 +269,9 @@ regex = { version = "1.13.1", default-features = false, features = [
 # `minisign-verify`/`minisign` uses one layer up, with the same benefit — what the product reads is
 # proved against what a *different* implementation wrote.
 ruzstd = "0.9.0"
+# T186: listing the macOS Keychain, which `keyring` cannot do. The major `keyring`'s `apple-native`
+# and `rustls-native-certs` already use on macOS, so the tree gains no second copy (`cargo deny`).
+security-framework = "3.7.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 # The hash every downloaded artifact is checked against, pinned in the signed index

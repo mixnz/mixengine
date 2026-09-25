@@ -15,8 +15,9 @@ export type UninstallReport = {
 /**
  * One entry per thing MixEngine can have written, in a fixed order, whatever each answered.
  *
- * Eleven of the thirteen ids appear exactly once. [`ResidueId::RelocatedDirectory`] appears once
- * per directory `[paths]` has moved out of the root, and on an ordinary home not at all;
- * [`ResidueId::InUse`] once per process in the way.
+ * Most ids appear exactly once. [`ResidueId::RelocatedDirectory`] appears once per directory
+ * `[paths]` has moved out of the root, and on an ordinary home not at all;
+ * [`ResidueId::InUse`] once per process in the way; the window's rows and the two credential
+ * rows only when there is something there.
  */
 items: Array<Residue>, };

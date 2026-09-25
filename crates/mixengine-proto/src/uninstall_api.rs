@@ -61,9 +61,10 @@ pub struct UninstallQuery {
 pub struct UninstallReport {
     /// One entry per thing MixEngine can have written, in a fixed order, whatever each answered.
     ///
-    /// Eleven of the thirteen ids appear exactly once. [`ResidueId::RelocatedDirectory`] appears once
-    /// per directory `[paths]` has moved out of the root, and on an ordinary home not at all;
-    /// [`ResidueId::InUse`] once per process in the way.
+    /// Most ids appear exactly once. [`ResidueId::RelocatedDirectory`] appears once per directory
+    /// `[paths]` has moved out of the root, and on an ordinary home not at all;
+    /// [`ResidueId::InUse`] once per process in the way; the window's rows and the two credential
+    /// rows only when there is something there.
     pub items: Vec<Residue>,
 }
 
@@ -170,6 +171,15 @@ pub enum ResidueId {
     /// the program, whatever is kept.
     WindowCache,
 
+    /// The passwords this home's services and databases use, in the OS credential store under
+    /// `mixengine`, `<home-id>/…` — **T182d**. They follow the home: a kept `data/` without its
+    /// passwords is a database nobody can open.
+    Credentials,
+
+    /// The MixLab window's saved passwords and its sync sign-in, under `MixLab` — **T182d**. They
+    /// follow the home, as the window's data does.
+    WindowCredentials,
+
     /// `MIXENGINE_HOME` itself.
     Home,
 
@@ -204,6 +214,8 @@ impl ResidueId {
         Self::CompletedBinary,
         Self::WindowData,
         Self::WindowCache,
+        Self::Credentials,
+        Self::WindowCredentials,
         Self::Home,
         Self::RelocatedDirectory,
         Self::InUse,
@@ -373,7 +385,16 @@ mod tests {
         unique.dedup();
 
         assert_eq!(unique.len(), spellings.len(), "{spellings:?}");
-        assert_eq!(spellings.len(), 16);
+        assert_eq!(spellings.len(), 18);
+        // T182d: the credential store, as the two words `mix` and a test match on.
+        assert!(
+            spellings.contains(&"\"credentials\"".to_owned()),
+            "{spellings:?}"
+        );
+        assert!(
+            spellings.contains(&"\"window_credentials\"".to_owned()),
+            "{spellings:?}"
+        );
     }
 
     /// T182, D2. The relocated directories are their own choice, and leaving the field out keeps

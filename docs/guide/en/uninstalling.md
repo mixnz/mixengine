@@ -51,9 +51,13 @@ That changes nothing and names every single thing it would remove:
 - the privileged helper, and its audit log
 - the MixLab window's cache and logs, and, with the directory below, its saved connections and
   history
+- the passwords your databases use, and MixLab's saved passwords and sync sign-in, from your
+  system's password store. If you keep the directory below, they stay with it
 - and finally MixLab's own directory
 
 ## Doing it
+
+Quit MixLab first. If its window is open, it saves its passwords again after they are removed.
 
 ```bash
 mix uninstall

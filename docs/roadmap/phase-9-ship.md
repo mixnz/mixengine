@@ -198,6 +198,16 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `MixEngine Local CA`, so a machine that has had several installs or development homes keeps the
       rest in the trust store for ever (the machine that found T182b held eleven). Decide which of
       them an uninstall may claim, and how a person removes the others.
+- [x] **T186** One Keychain question per home. On macOS `mixengined` keeps every credential of a
+      home in one Keychain item, so an update asks once per home instead of once per password; the
+      window reads managed-database passwords through `mixengine-platform` and sees the same item.
+      `Keyring::keys` lists a service's keys on every system.
+      Design: [2026-09-26-t186-one-keychain-question-per-home-design.md](../specs/2026-09-26-t186-one-keychain-question-per-home-design.md),
+      ADR 0055.
+- [x] **T182d** An uninstall forgets what it kept in the credential store: this home's `mixengine`
+      entries and the window's `MixLab` entries go with the home and stay with it, as two rows of
+      the plan and the report. After T186.
+      Design: [2026-09-26-t182d-an-uninstall-forgets-what-it-kept-in-the-credential-store-design.md](../specs/2026-09-26-t182d-an-uninstall-forgets-what-it-kept-in-the-credential-store-design.md).
 - [ ] **T182a** An uninstall path for macOS and Linux, which have no uninstaller to hang T182 on:
       for example an *Uninstall MixLab…* item in the macOS app that runs the whole removal, deletes
       the `.app` and quits, so the app never outlives it. Until then the handbook's order stands:
