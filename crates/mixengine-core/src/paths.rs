@@ -62,6 +62,28 @@ const CRASHES_DIR_NAME: &str = "crashes";
 /// override and the OS cannot say where user data belongs, and [`Error::Io`] if the path cannot be
 /// made absolute.
 pub fn resolve_root(override_: Option<&Path>, host: &dyn Host) -> Result<PathBuf> {
+    resolve_root_with(override_, || Ok(host.home_dirs().default_home()?))
+}
+
+/// [`resolve_root`] with no [`Host`]: the platform default comes from
+/// [`mixengine_platform::home::default_home`], which is the same answer.
+///
+/// **The shim's.** A `Host` keeps every capability's DLLs in the import table of the binary that
+/// builds one, and the shim runs in front of every `php` a person types — see the note on that
+/// function. Everything else keeps [`resolve_root`], which a test can hand a mock.
+///
+/// # Errors
+///
+/// As [`resolve_root`].
+pub fn resolve_root_default(override_: Option<&Path>) -> Result<PathBuf> {
+    resolve_root_with(override_, || Ok(mixengine_platform::home::default_home()?))
+}
+
+/// The one body both spellings share, given how to find the platform default.
+fn resolve_root_with(
+    override_: Option<&Path>,
+    default: impl FnOnce() -> Result<PathBuf>,
+) -> Result<PathBuf> {
     let root = match override_ {
         // A guard at the library boundary, not the daemon's first line of defence: `clap` refuses
         // an empty `--home` and an empty `MIXENGINE_HOME` before either reaches this function, so
@@ -70,7 +92,7 @@ pub fn resolve_root(override_: Option<&Path>, host: &dyn Host) -> Result<PathBuf
         // empty override as "not given", which would point a sandbox run at the real install.
         Some(path) if path.as_os_str().is_empty() => return Err(Error::EmptyHome),
         Some(path) => path.to_path_buf(),
-        None => host.home_dirs().default_home()?,
+        None => default()?,
     };
 
     let absolute = std::path::absolute(&root).map_err(|source| Error::Io {

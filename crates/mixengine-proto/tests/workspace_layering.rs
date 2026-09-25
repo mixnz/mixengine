@@ -319,3 +319,27 @@ fn rust_files(directory: &std::path::Path) -> Vec<std::path::PathBuf> {
 
     found
 }
+
+/// **The shim never builds a `Host`.** `mixengine_platform::host()` is a trait object holding every
+/// capability — the keyring, the trust stores, the PATH, the ports, `sysinfo` — and its vtable keeps
+/// every implementation, so LTO keeps every DLL they import. On Windows that was a dozen (`user32`,
+/// `shell32`, `crypt32`, `pdh`, `iphlpapi` …), loaded at the start and unloaded at the end of every
+/// `php` a person types: ~8 ms of each run, measured on 2026-09-25, for a program that only needs to
+/// know where the home is. `paths::resolve_root_default` answers that without one.
+#[test]
+fn the_shim_never_builds_a_host() {
+    let shim = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR")))
+        .parent()
+        .expect("crates/")
+        .join("mixengine-shim")
+        .join("src");
+
+    for file in rust_files(&shim) {
+        let text = std::fs::read_to_string(&file).expect("a source file");
+        assert!(
+            !text.contains("mixengine_platform::host("),
+            "{} builds a platform Host; use `paths::resolve_root_default` instead",
+            file.display()
+        );
+    }
+}

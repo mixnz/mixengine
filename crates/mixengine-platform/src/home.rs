@@ -19,6 +19,21 @@ use crate::Host;
 /// The variable a development checkout names its suggested home in.
 pub const DEV_HOME_VAR: &str = "MIXENGINE_DEV_HOME";
 
+/// Where this user's home goes when nothing says otherwise — the same answer as
+/// [`HomeDirs::default_home`](crate::HomeDirs::default_home), with no [`Host`] built to ask it.
+///
+/// **For the shim, which runs in front of every `php` a person types.** A `Host` is a trait object
+/// holding every capability, and its vtable keeps every implementation and every DLL they import:
+/// on Windows a dozen, loaded and unloaded around each run, for a program that only needs this one
+/// path. The trait's implementations call this, so there is one answer however it is asked for.
+///
+/// # Errors
+///
+/// [`crate::Error::NoHomeDirectory`] when the OS cannot say where user data belongs.
+pub fn default_home() -> crate::Result<PathBuf> {
+    crate::sys::home::default_home()
+}
+
 /// The checkout's suggested home, if this build may take it — read from the environment.
 ///
 /// `None` sends the caller on to the platform default, which for a development build is ADR 0024's

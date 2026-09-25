@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use mixengine_core::config::PathOverrides;
-use mixengine_core::paths::{Paths, resolve_root};
+use mixengine_core::paths::{Paths, resolve_root, resolve_root_default};
 use mixengine_platform::mock;
 use mixengine_platform::paths::in_full;
 use mixengine_proto::ServiceId;
@@ -395,4 +395,30 @@ fn a_fully_relocated_home_still_owns_twelve_directories_and_keeps_run_at_home() 
     // And `daemon.log` travels with `logs/`, which is the one file built on another key rather than
     // on the root.
     assert!(paths.daemon_log_file().starts_with(bulk.path()));
+}
+
+/// The shim's way to a home, which builds no `Host` (the shim's DLL imports, 2026-09-25): an
+/// override is taken exactly as `resolve_root` takes it.
+#[test]
+fn the_hostless_resolution_takes_an_override_as_the_hosted_one_does() {
+    let home = TempDir::new().unwrap();
+    let chosen = home.path().join("somewhere-else");
+
+    assert_eq!(
+        resolve_root_default(Some(&chosen)).unwrap(),
+        in_full(&chosen)
+    );
+    assert!(matches!(
+        resolve_root_default(Some(Path::new(""))),
+        Err(mixengine_core::Error::EmptyHome)
+    ));
+}
+
+/// And with no override it lands where the real `Host` says the default is: one answer, however it
+/// is asked for.
+#[test]
+fn the_hostless_default_is_the_hosts_default() {
+    let hosted = resolve_root(None, mixengine_platform::host().as_ref()).unwrap();
+
+    assert_eq!(resolve_root_default(None).unwrap(), hosted);
 }

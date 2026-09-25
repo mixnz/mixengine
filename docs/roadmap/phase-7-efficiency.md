@@ -460,6 +460,14 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       Left for later: a smaller default PHP extension set (a product decision, `php -m` on a
       terminal has to match the pool), the hand-over's ~9 ms, and a size profile for the shim
       itself, now one file rather than one per name.
+      **The hand-over's ~9 ms, measured phase by phase inside the shim, was not the hand-over**:
+      the Job Object, the Ctrl-C handler and the assignment take ~0.1 ms together. About 7 ms is
+      `CreateProcess` itself, which any parent pays for any program on this machine, and ~3 ms is
+      the shim's exit unloading a dozen DLLs (`user32`, `shell32`, `crypt32`, `pdh`, `iphlpapi` …)
+      it imported only because it built a whole `Host` to learn where the home is. So the shim now
+      asks `paths::resolve_root_default`, which builds none, and `workspace_layering.rs` keeps it
+      that way: 5.61 → 5.18 MB, and ~3–4 ms off each resolution and each `php -v` on this machine.
+      `shell32` and `combase` stay, for `SHGetKnownFolderPath`.
 - [x] **T185a** An install completes itself from its own payload: the first start after an update
       copies `mixengine-trampoline` in from the running version's staged payload, so an in-place
       Windows update gets T185's `bin/` without a reinstall. An update still adds nothing.
