@@ -434,3 +434,62 @@ fn a_command_run_through_a_kind_that_is_not_installed_names_that_kinds_install_c
         "{said}"
     );
 }
+
+/// T185: asked by a trampoline, the resolver says what it would have become and becomes nothing.
+/// The fake runtime is never started, so nothing on stdout but the record.
+#[test]
+fn asked_by_a_trampoline_the_resolver_writes_a_record_and_starts_nothing() {
+    use mixengine_platform::handover::{Handover, SHIM_AS_ENV};
+
+    let home = Home::with(&["8.3.33"]);
+    let project = home.project("blog", Some("[runtimes]\nphp = \"8.3.33\"\n"));
+
+    let ran = Command::new(env!("CARGO_BIN_EXE_mixengine-shim"))
+        .current_dir(&project)
+        .env("MIXENGINE_HOME", home.path())
+        .env(SHIM_AS_ENV, "php")
+        .output()
+        .expect("the resolver runs");
+
+    assert_eq!(
+        ran.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&ran.stderr)
+    );
+
+    let record = Handover::decode(&ran.stdout).expect("a record on stdout");
+    assert_eq!(
+        record.program,
+        home.runtime_directory("8.3.33")
+            .join(harness::published_at())
+    );
+    assert!(record.args.is_empty(), "{record:?}");
+    assert!(record.env.contains_key("PATH"), "{record:?}");
+    assert!(
+        !record.env.contains_key(SHIM_AS_ENV),
+        "the variable must not reach the program: {record:?}"
+    );
+}
+
+/// T185: a refusal is the same sentence and the same code whoever asked, and writes no record.
+#[test]
+fn asked_by_a_trampoline_a_refusal_is_unchanged_and_writes_no_record() {
+    use mixengine_platform::handover::SHIM_AS_ENV;
+
+    let home = Home::with(&["8.3.33"]);
+    let project = home.project("legacy", Some("[runtimes]\nphp = \"8.1.30\"\n"));
+
+    let ran = Command::new(env!("CARGO_BIN_EXE_mixengine-shim"))
+        .current_dir(&project)
+        .env("MIXENGINE_HOME", home.path())
+        .env(SHIM_AS_ENV, "php")
+        .output()
+        .expect("the resolver runs");
+
+    let said = String::from_utf8_lossy(&ran.stderr);
+    assert_eq!(ran.status.code(), Some(127), "{said}");
+    assert!(ran.stdout.is_empty(), "no record for a refusal");
+    assert!(said.starts_with("php: "), "{said}");
+    assert!(said.contains("8.1.30"), "{said}");
+}

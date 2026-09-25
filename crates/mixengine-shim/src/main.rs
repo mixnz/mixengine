@@ -47,6 +47,7 @@ use std::path::{Path, PathBuf};
 
 use mixengine_core::config::PathOverrides;
 use mixengine_core::{Paths, Store, paths, resolve, runtimes, shims};
+use mixengine_platform::handover::{self, Handover};
 use mixengine_platform::process;
 use mixengine_proto::{PackageVersion, RuntimeKind, ServiceId, VersionConstraint};
 
@@ -64,7 +65,13 @@ fn main() {
     // binary under another name, so what has to be read is the name it was *invoked* by. On Unix
     // `current_exe` follows a symlink back to `mixengine-shim`, which would make every command in
     // `bin/` the same unknown one.
-    let invoked = std::env::args_os().next().unwrap_or_default();
+    //
+    // **Unless a trampoline asked (T185).** On Windows `bin/php.exe` is `mixengine-trampoline`,
+    // which runs this file under its own name and says in this variable which command it is.
+    let invoked = match std::env::var_os(handover::SHIM_AS_ENV) {
+        Some(name) => name,
+        None => std::env::args_os().next().unwrap_or_default(),
+    };
     let invoked = PathBuf::from(invoked);
 
     let arguments: Vec<OsString> = std::env::args_os().skip(1).collect();
@@ -138,10 +145,40 @@ fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
 
     let environment = surroundings(kind, &program, &root, &version, java.as_deref());
 
-    process::hand_over(&program, &arguments, &environment).map_err(|error| Refusal {
-        said: explain(&error),
-        hint: None,
-    })
+    become_program(&program, &arguments, &environment)
+}
+
+/// Hand over, or — asked by a trampoline — say what would have been handed over (T185).
+///
+/// The trampoline runs this with none of the user's arguments, so `arguments` here is only what
+/// this shim puts *before* them (`composer.phar`, T27c). The trampoline appends its own, which is
+/// why they never make the round trip through a pipe and back.
+fn become_program(
+    program: &Path,
+    arguments: &[OsString],
+    environment: &BTreeMap<String, OsString>,
+) -> Result<i32, Refusal> {
+    if std::env::var_os(handover::SHIM_AS_ENV).is_none() {
+        return process::hand_over(program, arguments, environment).map_err(|error| Refusal {
+            said: explain(&error),
+            hint: None,
+        });
+    }
+
+    let record = Handover {
+        program: program.to_path_buf(),
+        args: arguments.to_vec(),
+        env: environment.clone(),
+    };
+
+    std::io::Write::write_all(&mut std::io::stdout().lock(), &record.encode()).map_err(
+        |error| Refusal {
+            said: format!("cannot hand the resolution back to the trampoline: {error}"),
+            hint: None,
+        },
+    )?;
+
+    Ok(0)
 }
 
 /// A client of an installed service package — roadmap task **T130**.
@@ -273,10 +310,7 @@ fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
         Ok::<_, Refusal>((program, environment))
     })?;
 
-    process::hand_over(&program, arguments, &environment).map_err(|error| Refusal {
-        said: explain(&error),
-        hint: None,
-    })
+    become_program(&program, arguments, &environment)
 }
 
 /// A tool somebody installed into a runtime — roadmap task **T131**.
