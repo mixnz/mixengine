@@ -20,6 +20,78 @@ pub(crate) fn absent_store(source: &KeyringError) -> Option<&'static str> {
     )
 }
 
+/// The keys under `service` — T186.
+///
+/// `keyring` names every generic credential it writes `<key>.<service>`. `CredEnumerateW`'s filter
+/// takes a prefix and nothing else, so this lists every credential of this user and keeps the ones
+/// ending in `.<service>`.
+#[expect(
+    unsafe_code,
+    reason = "`CredEnumerateW` and `CredFree` are the only way to list the Credential Manager"
+)]
+pub(crate) fn keys(service: &str) -> Result<Vec<String>, KeyringError> {
+    use windows_sys::Win32::Foundation::{
+        ERROR_NO_SUCH_LOGON_SESSION, ERROR_NOT_FOUND, GetLastError,
+    };
+    use windows_sys::Win32::Security::Credentials::{
+        CRED_TYPE_GENERIC, CREDENTIALW, CredEnumerateW, CredFree,
+    };
+
+    let suffix = format!(".{service}");
+    let mut count = 0u32;
+    let mut list: *mut *mut CREDENTIALW = std::ptr::null_mut();
+
+    // SAFETY: a null filter lists everything; `count` and `list` are written by the call.
+    if unsafe { CredEnumerateW(std::ptr::null(), 0, &mut count, &mut list) } == 0 {
+        // SAFETY: read straight after the failing call, on the same thread.
+        let code = unsafe { GetLastError() };
+        let error = Box::new(std::io::Error::from_raw_os_error(code.cast_signed()));
+
+        return match code {
+            ERROR_NOT_FOUND => Ok(Vec::new()),
+            ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoStorageAccess(error)),
+            _ => Err(KeyringError::PlatformFailure(error)),
+        };
+    }
+
+    let mut keys = Vec::new();
+
+    // SAFETY: on success `list` holds `count` valid credential pointers until `CredFree`.
+    unsafe {
+        for &credential in std::slice::from_raw_parts(list, count as usize) {
+            let credential = &*credential;
+            if credential.Type != CRED_TYPE_GENERIC || credential.TargetName.is_null() {
+                continue;
+            }
+            if let Some(key) = wide(credential.TargetName).strip_suffix(&suffix) {
+                keys.push(key.to_owned());
+            }
+        }
+        CredFree(list.cast());
+    }
+
+    Ok(keys)
+}
+
+/// A NUL-terminated UTF-16 string, lossily.
+///
+/// # Safety
+///
+/// `pointer` points at a NUL-terminated wide string.
+#[expect(
+    unsafe_code,
+    reason = "reads a string the Credential Manager handed out"
+)]
+unsafe fn wide(pointer: *const u16) -> String {
+    let mut length = 0;
+    // SAFETY: the caller promises a terminator.
+    while unsafe { *pointer.add(length) } != 0 {
+        length += 1;
+    }
+    // SAFETY: `length` units were just read.
+    String::from_utf16_lossy(unsafe { std::slice::from_raw_parts(pointer, length) })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

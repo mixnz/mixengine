@@ -71,6 +71,15 @@ impl Keyring for Secrets {
             Err(source) => Err(failure("forget", service, key, source)),
         }
     }
+
+    fn keys(&self, service: &str) -> Result<Vec<String>> {
+        let mut keys = crate::sys::secrets::keys(service)
+            .map_err(|source| failure("list", service, "*", source))?;
+        keys.sort();
+        keys.dedup();
+
+        Ok(keys)
+    }
 }
 
 /// Address one credential.

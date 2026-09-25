@@ -97,6 +97,33 @@ pub(crate) fn absent_store(source: &KeyringError) -> Option<&'static str> {
     }
 }
 
+/// The keys under `service` — T186.
+///
+/// Searched on the `service` attribute `keyring` writes, and read from its `username` attribute.
+/// Locked items are included: their attributes are not secret, and a locked keyring must not look
+/// like an empty one to an uninstall. The errors are boxed exactly as `keyring` boxes its own, so
+/// [`absent_store`] reads the D-Bus name out of them the same way.
+pub(crate) fn keys(service: &str) -> Result<Vec<String>, KeyringError> {
+    use dbus_secret_service::{EncryptionType, SecretService};
+
+    let failure =
+        |error: dbus_secret_service::Error| KeyringError::PlatformFailure(Box::new(error));
+
+    let store = SecretService::connect(EncryptionType::Plain).map_err(failure)?;
+    let found = store
+        .search_items(std::collections::HashMap::from([("service", service)]))
+        .map_err(failure)?;
+
+    let mut keys = Vec::new();
+    for item in found.unlocked.iter().chain(&found.locked) {
+        if let Some(key) = item.get_attributes().map_err(failure)?.remove("username") {
+            keys.push(key);
+        }
+    }
+
+    Ok(keys)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

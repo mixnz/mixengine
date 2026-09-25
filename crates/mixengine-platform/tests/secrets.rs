@@ -290,3 +290,34 @@ fn two_generated_secrets_are_not_the_same() {
 
     assert_ne!(first, second);
 }
+
+/// T186: the keys under a service, and only those, read back from the machine's own store.
+#[test]
+fn keys_lists_what_was_written_under_a_service() {
+    let _turn = the_store();
+    let host = host();
+    let keyring = host.keyring();
+    let service = namespace("keys");
+
+    let written = keyring.set_secret(&service, "first", "1");
+    if store_is_absent(&written) {
+        assert!(store_is_absent(&keyring.keys(&service)));
+        return;
+    }
+    written.expect("checked above");
+    keyring
+        .set_secret(&service, "second", "2")
+        .unwrap_or_else(|error| panic!("a write: {}", chain(&error)));
+
+    let mut keys = keyring
+        .keys(&service)
+        .unwrap_or_else(|error| panic!("a listing: {}", chain(&error)));
+    keys.sort();
+    assert_eq!(keys, ["first".to_owned(), "second".to_owned()]);
+
+    keyring.forget_secret(&service, "first").expect("a removal");
+    keyring
+        .forget_secret(&service, "second")
+        .expect("a removal");
+    assert!(keyring.keys(&service).expect("a listing").is_empty());
+}

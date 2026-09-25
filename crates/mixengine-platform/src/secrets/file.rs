@@ -154,4 +154,15 @@ impl Keyring for File {
 
         self.save(&document, "forget", service, key)
     }
+
+    fn keys(&self, service: &str) -> Result<Vec<String>> {
+        let _turn = self.turn.lock().unwrap_or_else(PoisonError::into_inner);
+        let document = self.load("list", service, "*")?;
+
+        Ok(document
+            .entries
+            .get(service)
+            .map(|entries| entries.keys().cloned().collect())
+            .unwrap_or_default())
+    }
 }
