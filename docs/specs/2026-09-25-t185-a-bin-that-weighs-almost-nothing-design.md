@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-25
 task: T185
 ---
@@ -63,6 +63,10 @@ bin/php.exe  ── trampoline, one private copy per name, alive as long as the 
   `shims::refresh` holding the resolver's absolute path, which is where `shims::source` found it.
   `sweep` keeps that name. A missing or dangling file is exit 127 with a sentence naming the file
   and the fix (restart the daemon).
+- **A Windows install with no trampoline falls back to the shim**, copied per name as before this
+  task. That is every install that updates itself onto this release: `updates::apply::swap` never
+  adds a binary the install lacked. It works and stays heavy until the next full install; letting
+  an update add a binary is a rule change for its own ADR. (Found in the final review.)
 - **Unix does not change.** There the shim `exec`s away and `bin/` is already hard links to one
   file. `shims::refresh` places the trampoline on Windows and the shim elsewhere, reading the same
   `cfg!(windows)` constant `link` reads today.

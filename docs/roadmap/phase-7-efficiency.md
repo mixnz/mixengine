@@ -435,10 +435,25 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       machine's total RAM to size a buffer: two machines rendering different configuration from the
       same state is a change to what *generated config is disposable* means, and it would be its own
       task.
-- [ ] **T185** `<root>/bin` on Windows holds a trampoline per name instead of a copy of the
+- [x] **T185** `<root>/bin` on Windows holds a trampoline per name instead of a copy of the
       resolver: ~223 MB to under 20 MB on a machine with 38 commands. The trampoline runs
       `mixengine-shim` for the resolution only and keeps the Job Object itself.
       Design: [T185](../specs/2026-09-25-t185-a-bin-that-weighs-almost-nothing-design.md).
+      **Measured on the release build**: the trampoline is 365,568 bytes and the shim 5,875,200,
+      so 38 names are ~13.9 MB where they were ~223 MB; the shim itself is one file beside
+      `mixengined`. **The property the split rests on is a test, and it was mutation-checked**:
+      with the shim hard-linked into `bin/` instead, overwriting it under a running `php` fails,
+      and with the trampoline it does not. An overwrite and not a delete, because Windows lets a
+      running program's name be deleted and still refuses its bytes — the first version of the
+      test deleted, and passed against the broken layout too.
+      **A cfg attribute had slid off `resolver` on all three systems** (onto `mod reserved`), so a
+      build of `mixengine-platform` with neither `host` nor `elevated` did not compile; the
+      `handover`-only build the trampoline needs found it.
+      **An install that updates itself onto this release gets no trampoline** — an update never
+      adds a binary — so `shims::source` falls back to copying the shim as before; the next full
+      install moves `bin/` to the trampoline. Whether an update may add a binary is its own ADR.
+      Left for later, in the spec: where the shim's own 50–80 ms on Windows goes (T29's), and a
+      size profile for the shim itself, now one file rather than one per name.
 
 **Milestone M7** — after 30 idle minutes only `mixengined` + the web server are running, and the next
 request still succeeds within budget.
