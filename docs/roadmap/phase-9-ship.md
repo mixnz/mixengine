@@ -204,7 +204,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `Keyring::keys` lists a service's keys on every system.
       Design: [2026-09-26-t186-one-keychain-question-per-home-design.md](../specs/2026-09-26-t186-one-keychain-question-per-home-design.md),
       ADR 0055.
-- [ ] **T182d** An uninstall forgets what it kept in the credential store: this home's `mixengine`
+- [x] **T182d** An uninstall forgets what it kept in the credential store: this home's `mixengine`
       entries and the window's `MixLab` entries go with the home and stay with it, as two rows of
       the plan and the report. After T186.
       Design: [2026-09-26-t182d-an-uninstall-forgets-what-it-kept-in-the-credential-store-design.md](../specs/2026-09-26-t182d-an-uninstall-forgets-what-it-kept-in-the-credential-store-design.md).

@@ -4,7 +4,7 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixLab đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "d6d913ae3e3783b5f1143251f086419a2f7d7a2539c16d6cfede1c87d5f250d6"
+source_sha256 = "980c9350849ff93506c8e42d65581068d6d6d29540d06758bf15b8861706ac37"
 +++
 
 # Gỡ MixLab
@@ -53,9 +53,13 @@ Lệnh này không thay đổi gì, chỉ liệt kê từng thứ nó sẽ gỡ:
 - chương trình phụ trợ đặc quyền, cùng nhật ký kiểm tra của nó
 - cache và log của cửa sổ MixLab, cùng các kết nối và lịch sử nó đã lưu nếu thư mục bên dưới
   cũng bị xóa
+- mật khẩu database, cùng mật khẩu đã lưu và phiên đăng nhập sync của MixLab, trong kho mật
+  khẩu của hệ thống. Nếu bạn giữ thư mục bên dưới thì chúng được giữ theo
 - và cuối cùng là thư mục riêng của MixLab
 
 ## Thực hiện
+
+Thoát MixLab trước. Nếu cửa sổ còn mở, nó sẽ lưu lại mật khẩu ngay sau khi chúng bị xóa.
 
 ```bash
 mix uninstall

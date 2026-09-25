@@ -10,10 +10,12 @@
   with your services. Install the first version that can do this by hand, once.
 
 ### Changed
-- On macOS, an update asks for your login password once for MixEngine's database passwords, not
-  once for each of them.
+- On macOS, after an update MixEngine asks for your login password once to reach your database
+  passwords. Before, it asked once for each of them.
 
 ### Fixed
+- Removing MixLab with its data now also removes its saved passwords and your sync sign-in.
+  Before, installing it again signed you straight back in.
 - On macOS, opening MixLab again after closing its window to the tray shows the window. Before, only
   the tray's Open MixLab did.
 

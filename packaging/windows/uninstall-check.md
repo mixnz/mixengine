@@ -28,6 +28,10 @@ site so there is something outside the home to undo. Then:
    start, the second box appears and lists `D:\mixlogs`. Each of the four combinations removes
    exactly what the design's D2 table says.
 7. **Silent.** `uninstall.exe /S` with MixLab open closes it, keeps both kinds of data, and exits 0.
+8. **Credentials** (T182d). Sign in to sync and save a database connection with a password.
+   Uninstall with the data box **unticked**: `cmdkey /list | findstr /i "MixLab mixengine"` still
+   lists them, and a reinstall is still signed in. Uninstall again with it **ticked**: the same
+   command lists nothing of this home's, and a reinstall's Sync screen is signed out.
 8. **An update over a running copy.** Running a newer setup while MixLab and the daemon are up asks,
    closes both, and installs without an "error opening file for writing" dialog.
 
