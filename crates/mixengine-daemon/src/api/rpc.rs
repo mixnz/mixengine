@@ -3249,15 +3249,13 @@ mod tests {
         let daemon = undeclared().await;
         let root = daemon._home.path().to_path_buf();
 
-        let (source, args): (std::path::PathBuf, &[&str]) = if cfg!(windows) {
-            (
-                std::path::PathBuf::from(std::env::var("SystemRoot").expect("SystemRoot"))
-                    .join(r"System32\PING.EXE"),
-                &["-n", "30", "127.0.0.1"],
-            )
-        } else {
-            (std::path::PathBuf::from("/bin/sleep"), &["30"])
-        };
+        // `fakeservice`, and not a copy of a system program: macOS refuses to launch a copy of one
+        // of its own platform binaries from anywhere else (AMFI launch constraints), so a copied
+        // `/bin/sleep` was killed on start and there was nothing in the home to refuse over — on
+        // every Mac with SIP on. Its own clock ends it if the kill below is never reached.
+        let source = FakeService::program();
+        let fake = FakeService::new().exit_after(30_000);
+        let args = fake.args();
         let occupant = root.join("t182-occupant");
         std::fs::create_dir_all(&occupant).expect("a directory in the home");
         let copy = occupant.join(source.file_name().expect("a file name"));
