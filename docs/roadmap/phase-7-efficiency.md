@@ -435,6 +435,10 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       machine's total RAM to size a buffer: two machines rendering different configuration from the
       same state is a change to what *generated config is disposable* means, and it would be its own
       task.
+- [ ] **T185** `<root>/bin` on Windows holds a trampoline per name instead of a copy of the
+      resolver: ~223 MB to under 20 MB on a machine with 38 commands. The trampoline runs
+      `mixengine-shim` for the resolution only and keeps the Job Object itself.
+      Design: [T185](../specs/2026-09-25-t185-a-bin-that-weighs-almost-nothing-design.md).
 
 **Milestone M7** — after 30 idle minutes only `mixengined` + the web server are running, and the next
 request still succeeds within budget.
