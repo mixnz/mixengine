@@ -59,6 +59,24 @@ pub(crate) async fn take(
     rows.push(audit_log());
     rows.push(autostart_entry(uninstall));
     rows.push(path_entry(uninstall).await);
+
+    // T185a: what this install added to itself, from a copy MixEngine updates itself and nowhere
+    // else — a copy a package manager placed is its package's to remove (ADR 0048).
+    let recorded: Vec<String> = mixengine_core::updates::records::get(
+        &uninstall.store,
+        mixengine_core::updates::records::COMPLETED,
+    )
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_default();
+    let directory = match uninstall.updates.placement() {
+        mixengine_core::updates::Placement::SelfUpdatable { directory } => {
+            Some(directory.as_path())
+        }
+        _ => None,
+    };
+    rows.extend(completed_row(directory, &recorded));
     rows.extend(window_rows(
         is_the_windows_home(uninstall),
         mixengine_platform::window_data::locate(mixengine_core::window::IDENTIFIER).as_ref(),
@@ -139,6 +157,36 @@ pub(crate) fn window_rows(
         });
 
     data.chain(cache).collect()
+}
+
+/// **10c.** The program files this install added to itself — T185a, ADR 0054.
+///
+/// `directory` is the install's when its placement is `SelfUpdatable`, and `None` otherwise. One row
+/// for every recorded file still there, because the uninstall keys what it did by id; its location
+/// is the install directory, which `mix` must not measure as something going.
+pub(crate) fn completed_row(directory: Option<&Path>, recorded: &[String]) -> Option<Residue> {
+    let directory = directory?;
+    let present: Vec<&str> = recorded
+        .iter()
+        .map(String::as_str)
+        .filter(|name| there(&directory.join(format!("{name}{}", std::env::consts::EXE_SUFFIX))))
+        .collect();
+
+    if present.is_empty() {
+        return None;
+    }
+
+    Some(Residue {
+        id: ResidueId::CompletedBinary,
+        what: format!(
+            "program files this install added to itself: {}",
+            present.join(", ")
+        ),
+        location: directory.display().to_string(),
+        outcome: Removal::Planned {
+            how: "remove these files from the program's directory".to_owned(),
+        },
+    })
 }
 
 /// **11.** The home, each relocated directory, and every tombstone an earlier run left beside them
@@ -844,6 +892,35 @@ fn trust_place(method: mixengine_platform::TrustStoreMethod) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// T185a: what the install added to itself is one planned row, listing the recorded names.
+    #[test]
+    fn what_the_install_added_to_itself_is_one_planned_row() {
+        let directory = tempfile::tempdir().expect("a directory");
+        let exe = std::env::consts::EXE_SUFFIX;
+        std::fs::write(
+            directory.path().join(format!("mixengine-trampoline{exe}")),
+            b"x",
+        )
+        .expect("a file");
+
+        let row = completed_row(Some(directory.path()), &["mixengine-trampoline".to_owned()])
+            .expect("a row");
+
+        assert_eq!(row.id, ResidueId::CompletedBinary);
+        assert!(row.what.contains("mixengine-trampoline"), "{row:?}");
+        assert!(matches!(row.outcome, Removal::Planned { .. }), "{row:?}");
+    }
+
+    /// No row for a copy a package manager placed (ADR 0048), and none for a file already gone.
+    #[test]
+    fn no_row_without_a_writable_install_or_without_a_file() {
+        let directory = tempfile::tempdir().expect("a directory");
+        let recorded = ["mixengine-trampoline".to_owned()];
+
+        assert!(completed_row(None, &recorded).is_none());
+        assert!(completed_row(Some(directory.path()), &recorded).is_none());
+    }
 
     fn query(keep_home: bool, keep_relocated: bool) -> mixengine_proto::UninstallQuery {
         mixengine_proto::UninstallQuery {

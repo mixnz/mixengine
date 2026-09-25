@@ -43,6 +43,9 @@ pub(crate) struct Doors {
 
     /// Where the home's own directories are left for `main` to remove on the way out.
     pub(crate) armed: Arc<Armed>,
+
+    /// Where this copy's binaries are, and whether MixEngine updates them itself — T185a.
+    pub(crate) updates: Arc<crate::updates::Updates>,
 }
 
 /// What an uninstall put in the queue — the T182b design, D6.
@@ -95,6 +98,9 @@ pub(crate) struct Uninstall {
     /// Where the home's own directories are left for `main` to remove on the way out.
     armed: Arc<Armed>,
 
+    /// Where this copy's binaries are, and whether MixEngine updates them itself — T185a.
+    updates: Arc<crate::updates::Updates>,
+
     /// The home's own layout: where its authority is, and every directory it owns.
     paths: mixengine_core::Paths,
 }
@@ -121,6 +127,7 @@ impl Uninstall {
             elevation: doors.elevation,
             certificates: doors.certificates,
             armed: doors.armed,
+            updates: doors.updates,
             paths: paths.clone(),
         })
     }
@@ -376,6 +383,34 @@ impl Uninstall {
             );
         }
 
+        // T185a: the program files this install added to itself. The record is cleared once they
+        // are gone, so a kept home reused by a fresh install does not remove that install's file.
+        if planned_row(planned, ResidueId::CompletedBinary)
+            && let mixengine_core::updates::Placement::SelfUpdatable { directory } =
+                self.updates.placement()
+        {
+            let recorded: Vec<String> = mixengine_core::updates::records::get(
+                &self.store,
+                mixengine_core::updates::records::COMPLETED,
+            )
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+            let outcome = remove_completed(directory, &recorded);
+
+            if matches!(outcome, Removal::Removed { .. }) {
+                let _ = mixengine_core::updates::records::clear(
+                    &self.store,
+                    mixengine_core::updates::records::COMPLETED,
+                )
+                .await;
+            }
+
+            done.insert(ResidueId::CompletedBinary, outcome);
+        }
+
         if planned_row(planned, ResidueId::AutostartEntry) {
             let autostart = Arc::clone(&self.autostart);
             done.insert(
@@ -554,10 +589,11 @@ impl Uninstall {
             // records nothing for it, because the line would recreate the file.
             ResidueId::AuditLog => Some(PrivilegedOp::AuditLogRemove {}),
 
-            // The three that need no token, and the directories the daemon removes as it exits.
+            // The four that need no token, and the directories the daemon removes as it exits.
             ResidueId::BrowserTrust
             | ResidueId::AutostartEntry
             | ResidueId::PathEntry
+            | ResidueId::CompletedBinary
             | ResidueId::Home
             | ResidueId::RelocatedDirectory
             | ResidueId::WindowData
@@ -724,6 +760,29 @@ fn needs_the_helper(id: ResidueId) -> bool {
 }
 
 /// Did the plan say there was something of ours here?
+/// Remove the recorded files from the program's directory, and say what is left — read back off
+/// the disk rather than taken from `remove_file`'s answer, on this module's rule.
+pub(crate) fn remove_completed(directory: &std::path::Path, recorded: &[String]) -> Removal {
+    let stuck: Vec<String> = recorded
+        .iter()
+        .map(|name| directory.join(format!("{name}{}", std::env::consts::EXE_SUFFIX)))
+        .filter(|file| {
+            let _ = std::fs::remove_file(file);
+            file.exists()
+        })
+        .map(|file| file.display().to_string())
+        .collect();
+
+    match stuck.is_empty() {
+        true => Removal::Removed {
+            what: "the files this install added to itself are gone".to_owned(),
+        },
+        false => Removal::Failed {
+            because: format!("still there: {}", stuck.join(", ")),
+        },
+    }
+}
+
 fn planned_row(planned: &[Residue], id: ResidueId) -> bool {
     planned
         .iter()
@@ -820,6 +879,20 @@ fn settle(
 mod tests {
     use super::*;
 
+    /// T185a: the files are removed, and what is reported is read back off the disk.
+    #[test]
+    fn removing_what_the_install_added_reads_the_disk_back() {
+        let directory = tempfile::tempdir().expect("a directory");
+        let exe = std::env::consts::EXE_SUFFIX;
+        let file = directory.path().join(format!("mixengine-trampoline{exe}"));
+        std::fs::write(&file, b"x").expect("a file");
+
+        let outcome = remove_completed(directory.path(), &["mixengine-trampoline".to_owned()]);
+
+        assert!(matches!(outcome, Removal::Removed { .. }), "{outcome:?}");
+        assert!(!file.exists());
+    }
+
     /// **The home is not the helper's business, and this is the assertion that says so.**
     ///
     /// `settle` reads a row that is still `Planned` as one the helper was asked about and did not
@@ -842,10 +915,11 @@ mod tests {
         }
 
         for id in [
-            // The three that need no token, answered where they are acted on.
+            // The four that need no token, answered where they are acted on.
             ResidueId::BrowserTrust,
             ResidueId::AutostartEntry,
             ResidueId::PathEntry,
+            ResidueId::CompletedBinary,
             // And the four the daemon removes itself, answered by `arm_the_home`.
             ResidueId::Home,
             ResidueId::RelocatedDirectory,

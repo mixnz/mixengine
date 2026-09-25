@@ -158,6 +158,10 @@ pub enum ResidueId {
     /// `<root>/bin` on this user's `PATH`.
     PathEntry,
 
+    /// A program file this install added to itself from its own payload — **T185a**, ADR 0054.
+    /// It goes with the program whatever is kept, and only from a copy MixEngine updates itself.
+    CompletedBinary,
+
     /// A folder the MixLab window saves what a person made in: connections, histories, the sync
     /// database — **T182b**. It follows the home: kept when the home is kept.
     WindowData,
@@ -197,6 +201,7 @@ impl ResidueId {
         Self::AuditLog,
         Self::AutostartEntry,
         Self::PathEntry,
+        Self::CompletedBinary,
         Self::WindowData,
         Self::WindowCache,
         Self::Home,
@@ -368,7 +373,7 @@ mod tests {
         unique.dedup();
 
         assert_eq!(unique.len(), spellings.len(), "{spellings:?}");
-        assert_eq!(spellings.len(), 15);
+        assert_eq!(spellings.len(), 16);
     }
 
     /// T182, D2. The relocated directories are their own choice, and leaving the field out keeps
