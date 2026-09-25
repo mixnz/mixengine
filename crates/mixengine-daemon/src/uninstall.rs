@@ -459,6 +459,17 @@ impl Uninstall {
             asked.ops.push(op);
         }
 
+        // **Every batch writes the audit log, so every batch removes it** (T182b). The helper records
+        // each operation it applies, so a run whose inventory found no log — an earlier uninstall
+        // removed it — would create one with its own first line and then report that as left
+        // behind. Measured on the first real uninstall after T182b's D7. The helper applies this
+        // last and records nothing for it, whatever position it has in the batch.
+        let remove_the_log = PrivilegedOp::AuditLogRemove {};
+        if !asked.ops.is_empty() && !asked.ops.contains(&remove_the_log) {
+            self.elevation.enqueue(&remove_the_log).await?;
+            asked.ops.push(remove_the_log);
+        }
+
         // The rows that now hold what this run asked for, read back rather than assumed: an
         // operation that was already waiting is the same row, and its id is the one to grant.
         asked.ids = self

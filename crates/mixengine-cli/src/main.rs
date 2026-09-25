@@ -3105,17 +3105,23 @@ async fn uninstall(
         render::uninstall_report(&report)
     }))?;
 
-    let still_there = left_behind(&report, endpoint).await;
-
-    for path in &still_there {
-        report_left(path);
-    }
+    let still_there = left_behind(&report, endpoint, daemon).await;
 
     // **And the process itself** (the T182b design, D8). The endpoint goes quiet before the daemon
     // has finished removing its home and exited, and until it has, its image is still mapped: the
     // Windows uninstaller deleting `mixengined.exe` straight after this returned is what found that.
     let lingering = finished_uninstall(&report)
         && daemon.is_some_and(|(pid, began)| !process_has_ended(pid, began));
+
+    // **Why, before what.** A daemon that could not remove its home says so in a note outside it
+    // (T182b), and that sentence is the one that tells a person what to close.
+    if let Some((pid, _)) = daemon.filter(|_| !lingering) {
+        print_the_daemons_note(pid);
+    }
+
+    for path in &still_there {
+        report_left(path);
+    }
 
     if let Some((pid, _)) = daemon.filter(|_| lingering) {
         report_left(&format!("the daemon (pid {pid}) is still running"));
@@ -3148,12 +3154,7 @@ fn process_has_ended(pid: u32, began: mixengine_platform::process::StartTime) ->
     let deadline = std::time::Instant::now() + PROCESS_GONE;
 
     loop {
-        let same = mixengine_platform::process::started_at(pid)
-            .ok()
-            .flatten()
-            .is_some_and(|now| now == began);
-
-        if !same {
+        if has_ended(pid, began) {
             return true;
         }
 
@@ -3163,6 +3164,29 @@ fn process_has_ended(pid: u32, began: mixengine_platform::process::StartTime) ->
 
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
+}
+
+/// Has the process that began at `began` ended? Asked once.
+fn has_ended(pid: u32, began: mixengine_platform::process::StartTime) -> bool {
+    !mixengine_platform::process::started_at(pid)
+        .ok()
+        .flatten()
+        .is_some_and(|now| now == began)
+}
+
+/// Print, and then remove, what the daemon `pid` said about a removal it could not finish.
+fn print_the_daemons_note(pid: u32) {
+    let note = mixengine_platform::tombstone::note_for(pid);
+
+    let Ok(said) = std::fs::read_to_string(&note) else {
+        return;
+    };
+
+    for line in said.lines().filter(|line| !line.trim().is_empty()) {
+        let _ = writeln!(std::io::stderr(), "{line}");
+    }
+
+    let _ = std::fs::remove_file(&note);
 }
 
 /// `mix self-update` — roadmap task **T88**.
@@ -3528,7 +3552,15 @@ const PROCESS_GONE: std::time::Duration = std::time::Duration::from_secs(120);
 ///
 /// A daemon that is still there when the budget runs out has not removed them, and what this answers
 /// is the honest thing: they are still there.
-async fn left_behind(report: &UninstallReport, endpoint: &Endpoint) -> Vec<String> {
+///
+/// **A daemon whose process has ended will not remove anything more**, so once `daemon` has gone the
+/// paths are read one last time and answered, rather than waited on for the rest of the budget
+/// (T182b: a home held open by File Explorer kept the uninstaller waiting a minute for nothing).
+async fn left_behind(
+    report: &UninstallReport,
+    endpoint: &Endpoint,
+    daemon: Option<(u32, mixengine_platform::process::StartTime)>,
+) -> Vec<String> {
     /// How often the paths are looked at while the daemon finishes.
     const STEP: std::time::Duration = std::time::Duration::from_millis(100);
 
@@ -3563,6 +3595,9 @@ async fn left_behind(report: &UninstallReport, endpoint: &Endpoint) -> Vec<Strin
     let deadline = tokio::time::Instant::now() + GOING;
 
     loop {
+        // Asked before the paths are read, so the reading after it is one the daemon cannot change.
+        let ended = daemon.is_some_and(|(pid, began)| has_ended(pid, began));
+
         // A tombstone beside a path is that path half-removed (T182, D6), and counts as left.
         let mut left: Vec<String> = going
             .iter()
@@ -3579,7 +3614,7 @@ async fn left_behind(report: &UninstallReport, endpoint: &Endpoint) -> Vec<Strin
         left.sort();
         left.dedup();
 
-        if left.is_empty() || tokio::time::Instant::now() + STEP >= deadline {
+        if left.is_empty() || ended || tokio::time::Instant::now() + STEP >= deadline {
             return left;
         }
 

@@ -321,6 +321,43 @@ async fn a_complete_uninstall_takes_the_home_and_the_daemon_with_it() {
     assert!(stdout(&printed).contains("going"), "{}", stdout(&printed));
 }
 
+/// The same, for a daemon `mix` autostarted — which is the daemon every real machine has.
+///
+/// **T182b, found on the first real Windows uninstall.** An autostarted daemon is started with its
+/// home as its working directory, and Windows will not rename a directory a process is standing in,
+/// the daemon's own included: every such uninstall kept the home and exited non-zero. The test
+/// above never saw it, because a daemon this suite starts itself stands somewhere else.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_autostarted_daemon_takes_its_home_with_it() {
+    let home = Home::new();
+
+    // Autostarted: nobody's child, standing in its home, exactly as on a person's machine.
+    assert!(
+        home.mix(&["status"]).status.success(),
+        "mix could not autostart a daemon for this home"
+    );
+
+    if needs_an_administrator(&home) {
+        return;
+    }
+
+    let printed = home.mix(&["uninstall", "--yes"]);
+
+    assert!(
+        !home.path().exists(),
+        "an autostarted daemon kept its home:\n{}\n{}",
+        stdout(&printed),
+        stderr(&printed)
+    );
+    assert_eq!(
+        printed.status.code(),
+        Some(0),
+        "{}\n{}",
+        stdout(&printed),
+        stderr(&printed)
+    );
+}
+
 /// Typing anything but yes is a decline, and a decline removes nothing and fails nothing.
 #[tokio::test(flavor = "multi_thread")]
 async fn answering_no_removes_nothing_and_is_not_a_failure() {

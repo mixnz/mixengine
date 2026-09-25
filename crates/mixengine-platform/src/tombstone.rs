@@ -35,6 +35,10 @@ pub struct Refused {
 
     /// What the system said.
     pub error: std::io::Error,
+
+    /// A file inside it that another program holds open, when one could be found — T182b. The
+    /// system names only the directory, and the file is what tells a person which program to close.
+    pub held: Option<PathBuf>,
 }
 
 /// Rename every directory in `paths` to its tombstone, then delete the tombstones.
@@ -68,6 +72,7 @@ pub fn remove_all_or_nothing(paths: &[PathBuf], pid: u32) -> Result<Vec<Leftover
             }
 
             return Err(Refused {
+                held: first_held(path),
                 path: path.clone(),
                 error,
             });
@@ -113,6 +118,76 @@ pub fn tombstones_beside(path: &Path) -> Vec<PathBuf> {
 
     found.sort();
     found
+}
+
+/// Where the daemon `pid` leaves the reason its removal did not finish, for `mix` to read once that
+/// process is gone — roadmap task **T182b**.
+///
+/// **Outside the home**, because the home is what could not be removed, and **not the daemon's
+/// standard error**, which a daemon started in the background writes to nowhere. Found by the pid,
+/// which `mix` already holds to wait for the process.
+#[must_use]
+pub fn note_for(pid: u32) -> PathBuf {
+    std::env::temp_dir().join(format!("mixengined-{pid}.uninstall"))
+}
+
+/// The first file under `directory` that another program holds open, looked for after a refusal.
+///
+/// **Windows only**, because it is the one system whose rename a held file refuses. Opening a file
+/// with no sharing at all fails exactly when somebody else has it open. The walk is bounded, since
+/// it runs once, on a failure, over a home that can hold a great many files.
+#[cfg(windows)]
+fn first_held(directory: &Path) -> Option<PathBuf> {
+    use std::os::windows::fs::OpenOptionsExt as _;
+
+    /// `ERROR_SHARING_VIOLATION`: somebody else has it open.
+    const SHARING_VIOLATION: i32 = 32;
+    const LOOKED_AT_MOST: usize = 50_000;
+
+    let mut waiting = vec![directory.to_path_buf()];
+    let mut looked = 0;
+
+    while let Some(current) = waiting.pop() {
+        let Ok(entries) = std::fs::read_dir(&current) else {
+            continue;
+        };
+
+        for entry in entries.filter_map(Result::ok) {
+            looked += 1;
+            if looked > LOOKED_AT_MOST {
+                return None;
+            }
+
+            let path = entry.path();
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+
+            if kind.is_dir() {
+                waiting.push(path);
+                continue;
+            }
+
+            let opened = std::fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&path);
+
+            if let Err(error) = opened
+                && error.raw_os_error() == Some(SHARING_VIOLATION)
+            {
+                return Some(path);
+            }
+        }
+    }
+
+    None
+}
+
+/// Nothing to look for: an open file does not refuse a rename here.
+#[cfg(not(windows))]
+fn first_held(_directory: &Path) -> Option<PathBuf> {
+    None
 }
 
 /// Where `path` is set aside while it is being deleted.
@@ -234,5 +309,29 @@ mod tests {
 
         assert!(outcome.is_err(), "{outcome:?}");
         assert!(a.join("file").exists());
+    }
+
+    /// T182b. The file another program holds is found and named, not only the directory above it.
+    #[cfg(windows)]
+    #[test]
+    fn the_held_file_is_found_under_the_directory() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let inner = root.path().join("logs").join("services");
+        std::fs::create_dir_all(&inner).expect("a nested directory");
+        std::fs::write(root.path().join("free.txt"), b"nobody has this").expect("a free file");
+        let held = inner.join("current.log");
+        std::fs::write(&held, b"somebody has this").expect("a held file");
+
+        let _open = std::fs::File::open(&held).expect("held open");
+
+        assert_eq!(first_held(root.path()), Some(held));
+    }
+
+    #[test]
+    fn nothing_is_held_in_a_directory_nobody_has_open() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        std::fs::write(root.path().join("free.txt"), b"nobody has this").expect("a free file");
+
+        assert_eq!(first_held(root.path()), None);
     }
 }

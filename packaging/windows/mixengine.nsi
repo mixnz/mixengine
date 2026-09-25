@@ -360,7 +360,7 @@ Function un.onInit
 
   StrCpy $Relocated ""
   ${IfNot} ${Silent}
-    Banner::show /NOUNLOAD "Checking MixLab's folders…"
+    Banner::show /NOUNLOAD "Checking MixLab's folders..."
   ${EndIf}
   nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run --relocated'
   Pop $0

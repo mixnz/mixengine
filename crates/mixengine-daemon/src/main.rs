@@ -768,16 +768,25 @@ async fn run() -> anyhow::Result<()> {
         // `logs/daemon.log` is inside the home this is about to remove. Nothing below writes a line.
         logging::release();
 
+        // **And out of the home.** `detach` starts a background daemon with the home as its working
+        // directory, and Windows will not rename a directory some process is standing in — this
+        // one included — so every uninstall of a daemon a client had autostarted kept its home
+        // (T182b, the first real Windows uninstall). The temporary directory is outside anything
+        // armed; a failure here is left for the rename to report.
+        let _ = std::env::set_current_dir(std::env::temp_dir());
+
         remove_what_the_uninstall_armed(armed);
     }
 
     served.map(|_| ())
 }
 
-/// Remove the directories a finished uninstall named, and complain on stderr about any that stay.
+/// Remove the directories a finished uninstall named, and say why about any that stay.
 ///
-/// **Standard error and not the log**, for the obvious reason: the log is one of the things being
-/// removed. `mix uninstall` reads these paths back once this process is gone, which is what makes
+/// **Standard error and a note outside the home, not the log**, for the obvious reason: the log is
+/// one of the things being removed. A daemon started in the background has nowhere for standard
+/// error to go, so the same lines go to [`tombstone::note_for`](mixengine_platform::tombstone::note_for),
+/// where `mix` reads them (T182b). `mix uninstall` reads these paths back once this process is gone, which is what makes
 /// its exit code mean *nothing is left behind* rather than *the daemon said so* — so a failure here
 /// is reported by the client whether or not anybody reads this line.
 ///
@@ -789,26 +798,53 @@ async fn run() -> anyhow::Result<()> {
 /// A path that is already gone is not a failure: on a home with no relocation the root removes
 /// everything under it, and a `[paths]` entry pointing inside the root would be removed with it.
 fn remove_what_the_uninstall_armed(armed: &[PathBuf]) {
-    match mixengine_platform::tombstone::remove_all_or_nothing(armed, std::process::id()) {
-        Ok(left) => {
-            for leftover in left {
-                let _ = writeln!(
-                    std::io::stderr(),
-                    "mixengined: cannot finish removing {}: {}",
+    let pid = std::process::id();
+    let note = mixengine_platform::tombstone::note_for(pid);
+
+    // A note left by an earlier process that had this pid would be read as this one's.
+    let _ = std::fs::remove_file(&note);
+
+    let lines: Vec<String> = match mixengine_platform::tombstone::remove_all_or_nothing(armed, pid)
+    {
+        Ok(left) => left
+            .into_iter()
+            .map(|leftover| {
+                format!(
+                    "mixengined: {} could not be removed ({}). the next uninstall removes it",
                     leftover.path.display(),
                     leftover.error
-                );
-            }
-        }
-        Err(refused) => {
-            let _ = writeln!(
-                std::io::stderr(),
-                "mixengined: {} is in use, so nothing of this home was removed: {}",
+                )
+            })
+            .collect(),
+        // **The common cause is a person's own window** — File Explorer or a terminal open
+        // inside the home, which Windows will not let anything rename (T182b, measured on the
+        // first real uninstall). Said in those words, since the error code alone names neither.
+        Err(refused) => vec![match &refused.held {
+            Some(held) => format!(
+                "mixengined: {} is open in another program, so nothing of this home was \
+                 removed. close the program using it, then run the uninstall again",
+                held.display()
+            ),
+            None => format!(
+                "mixengined: {} is open in another program, such as File Explorer or a \
+                 terminal, so nothing of this home was removed. close it, then run the \
+                 uninstall again ({})",
                 refused.path.display(),
                 refused.error
-            );
-        }
+            ),
+        }],
+    };
+
+    if lines.is_empty() {
+        return;
     }
+
+    for line in &lines {
+        let _ = writeln!(std::io::stderr(), "{line}");
+    }
+
+    // For `mix`, which reads it once this process has gone (`tombstone::note_for`).
+    let _ = std::fs::write(&note, lines.join("\n") + "\n");
 }
 
 /// Start a daemon in the background and wait until it answers.
