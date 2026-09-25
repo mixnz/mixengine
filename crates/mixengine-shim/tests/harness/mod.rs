@@ -781,9 +781,17 @@ fn dumped(path: &Path) -> BTreeMap<String, String> {
 /// `cargo test -p mixengine-shim` builds this package's binary and no other, so on Windows the
 /// trampoline is there only after a workspace build or its own — the message says which.
 pub(crate) fn built_source() -> shims::Source {
-    shims::source(Path::new(env!("CARGO_BIN_EXE_mixengine-shim"))).unwrap_or_else(|error| {
-        panic!(
-            "{error} — run `cargo build -p mixengine-trampoline` first, or `cargo test --workspace`"
-        )
-    })
+    let source = shims::source(Path::new(env!("CARGO_BIN_EXE_mixengine-shim")))
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    // `shims::source` falls back to the shim when there is no trampoline, which is right for an
+    // updated install and wrong here: this suite would then test the layout T185 replaced.
+    assert!(
+        !cfg!(windows) || source.placed != source.resolver,
+        "no mixengine-trampoline beside {} — run `cargo build -p mixengine-trampoline` first, or \
+         `cargo test --workspace`",
+        source.resolver.display()
+    );
+
+    source
 }

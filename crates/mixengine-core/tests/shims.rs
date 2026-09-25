@@ -451,24 +451,53 @@ fn a_second_refresh_keeps_the_pointer() {
     assert!(second.written.is_empty(), "{second:?}");
 }
 
-/// On Windows a release without the trampoline is broken, exactly as one without the shim is.
+/// **An install that updated itself onto T185 has no trampoline**, because an update never adds a
+/// binary the install did not have (`updates::apply::swap`, rule 1). `bin/` must still be filled:
+/// with the shim itself, as before T185 — heavier, and every command still works.
 #[test]
-fn on_windows_a_missing_trampoline_is_a_missing_shim() {
+fn on_windows_an_install_without_the_trampoline_fills_bin_with_the_shim() {
     if !cfg!(windows) {
         return;
     }
 
     let install = tempfile::tempdir().expect("a temporary directory");
     std::fs::write(install.path().join("mixengine-shim.exe"), b"resolver").expect("a resolver");
+    let bin = install.path().join("bin");
 
-    let missing = shims::source(&mixengined_in(install.path())).expect_err("no trampoline");
-    assert!(
-        matches!(missing, mixengine_core::Error::ShimMissing { .. }),
-        "{missing}"
+    let source = shims::source(&mixengined_in(install.path())).expect("the shim alone is enough");
+    assert_eq!(source.placed, source.resolver);
+
+    shims::refresh(&bin, &source, &[]).expect("refresh");
+    assert_eq!(
+        std::fs::read(bin.join("php.exe")).expect("php"),
+        b"resolver"
     );
-    assert!(
-        missing.to_string().contains("mixengine-trampoline"),
-        "{missing}"
+}
+
+/// And the trampoline is still what a full install gets, once it has one: the next start after a
+/// reinstall moves `bin/` over to it.
+#[test]
+fn on_windows_a_trampoline_that_arrives_later_replaces_the_shim_copies() {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let install = tempfile::tempdir().expect("a temporary directory");
+    std::fs::write(install.path().join("mixengine-shim.exe"), b"resolver").expect("a resolver");
+    let bin = install.path().join("bin");
+    let mixengined = mixengined_in(install.path());
+
+    shims::refresh(&bin, &shims::source(&mixengined).expect("shim"), &[]).expect("first");
+    std::fs::write(
+        install.path().join("mixengine-trampoline.exe"),
+        b"trampoline",
+    )
+    .expect("a trampoline");
+    shims::refresh(&bin, &shims::source(&mixengined).expect("both"), &[]).expect("second");
+
+    assert_eq!(
+        std::fs::read(bin.join("php.exe")).expect("php"),
+        b"trampoline"
     );
 }
 

@@ -489,8 +489,9 @@ pub const BINARY: &str = "mixengine-shim";
 
 /// The file `<root>/bin` holds under every name on Windows — roadmap task **T185**. See [`Source`].
 ///
-/// Shipped beside [`BINARY`] and held to `packaging/common.sh` by the same test, for the same
-/// reason: a Windows install without it has a `bin/` that cannot be filled.
+/// Shipped beside [`BINARY`] and held to `packaging/common.sh` by the same test: a Windows install
+/// without it falls back to copying the shim itself into `bin/`, which works and weighs what T185
+/// set out to remove.
 pub const TRAMPOLINE: &str = "mixengine-trampoline";
 
 /// What [`refresh`] fills `bin/` from.
@@ -516,15 +517,20 @@ pub struct Source {
 ///
 /// # Errors
 ///
-/// [`Error::ShimMissing`] naming whichever of the two is not there, which is a broken installation
-/// rather than anything a user did.
+/// [`Error::ShimMissing`] when the shim is not there, which is a broken installation rather than
+/// anything a user did. A missing trampoline is not an error: see the fallback below.
 pub fn source(program: &Path) -> Result<Source> {
     let beside = program.parent().unwrap_or_else(|| Path::new("."));
     let resolver = present(beside, BINARY)?;
 
     // The same constant `link` reads, for the same reason: see [`Source::placed`].
+    //
+    // **Without a trampoline, the shim itself**, as before T185. An install that updated itself
+    // onto this release has none: `updates::apply::swap` never adds a binary the install lacked. A
+    // `bin/` of full-size shim copies is heavy and works; refusing to fill it would leave every
+    // command missing. The next full install brings the trampoline and the next start moves to it.
     let placed = match cfg!(windows) {
-        true => present(beside, TRAMPOLINE)?,
+        true => present(beside, TRAMPOLINE).unwrap_or_else(|_| resolver.clone()),
         false => resolver.clone(),
     };
 

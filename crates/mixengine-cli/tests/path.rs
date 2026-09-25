@@ -29,12 +29,14 @@ fn php() -> String {
     format!("php{}", std::env::consts::EXE_SUFFIX)
 }
 
-/// Every file in this home's `bin/`.
+/// Every command in this home's `bin/`: every file but the one that tells a Windows trampoline
+/// where the shim is (T185), which is MixEngine's own and not a name anybody types.
 fn listing(home: &Home) -> BTreeSet<String> {
     std::fs::read_dir(home.path().join("bin"))
         .expect("a daemon that started has a bin/")
         .flatten()
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name != mixengine_platform::handover::RESOLVER_POINTER)
         .collect()
 }
 
