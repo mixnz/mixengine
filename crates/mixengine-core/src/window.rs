@@ -42,3 +42,9 @@ pub const SCHEME: &str = "mixlab";
 /// its webview's cache in per-user folders named after it, and `mix uninstall` finds them by this
 /// name (roadmap task **T182b**).
 pub const IDENTIFIER: &str = "io.github.mixnz.mixlab";
+
+/// **The service the window keeps its credentials under** in the OS credential store: saved
+/// connections' passwords and sync's sign-in. `mix uninstall` removes them with the home (roadmap
+/// task **T182d**). The same spelling as `SERVICE` in `apps/desktop/src-tauri/src/secrets.rs`,
+/// which cannot import it: the window depends on nothing here but proto and platform.
+pub const KEYRING_SERVICE: &str = "MixLab";

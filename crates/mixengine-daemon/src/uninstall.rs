@@ -299,6 +299,8 @@ impl Uninstall {
                         | ResidueId::RelocatedDirectory
                         | ResidueId::WindowData
                         | ResidueId::WindowCache
+                        | ResidueId::Credentials
+                        | ResidueId::WindowCredentials
                         | ResidueId::InUse
                 ) =>
                 {
@@ -598,6 +600,8 @@ impl Uninstall {
             | ResidueId::RelocatedDirectory
             | ResidueId::WindowData
             | ResidueId::WindowCache
+            | ResidueId::Credentials
+            | ResidueId::WindowCredentials
             | ResidueId::InUse => None,
         }
     }
@@ -925,6 +929,9 @@ mod tests {
             ResidueId::RelocatedDirectory,
             ResidueId::WindowData,
             ResidueId::WindowCache,
+            // And the two credential rows, answered by `forget_credentials`.
+            ResidueId::Credentials,
+            ResidueId::WindowCredentials,
         ] {
             assert!(!needs_the_helper(id), "{id:?}");
         }
