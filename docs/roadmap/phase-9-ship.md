@@ -198,7 +198,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `MixEngine Local CA`, so a machine that has had several installs or development homes keeps the
       rest in the trust store for ever (the machine that found T182b held eleven). Decide which of
       them an uninstall may claim, and how a person removes the others.
-- [ ] **T186** One Keychain question per home. On macOS `mixengined` keeps every credential of a
+- [x] **T186** One Keychain question per home. On macOS `mixengined` keeps every credential of a
       home in one Keychain item, so an update asks once per home instead of once per password; the
       window reads managed-database passwords through `mixengine-platform` and sees the same item.
       `Keyring::keys` lists a service's keys on every system.

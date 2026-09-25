@@ -3580,6 +3580,7 @@ dependencies = [
  "mixengine-proto",
  "pem",
  "rustls-native-certs 0.8.4",
+ "security-framework 2.11.1",
  "serde",
  "serde_json",
  "sysinfo",

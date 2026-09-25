@@ -90,8 +90,9 @@ trait Store {
 
 /// The credential store of the machine this is running on, under one service name.
 ///
-/// The name is a field rather than the constant it used to be because three of them are addressed
-/// from here: this application's own, MixEngine's, and — read-only — the one MixDB used.
+/// The name is a field rather than the constant it used to be because two of them are addressed
+/// from here: this application's own and — read-only — the one MixDB used. MixEngine's is read
+/// through `mixengine_platform` instead (`read_mixengine_entry`, T186).
 struct OsStore {
     service: &'static str,
 }
@@ -398,22 +399,27 @@ pub async fn secrets_delete(id: String) -> Result<(), AppError> {
     in_background(move || delete(&id)).await
 }
 
-/// The service MixEngine's own keyring entries are filed under — a compile-time constant on this
-/// side too, and never taken from a caller: see the module doc of `modules/db/handoff.rs` for why
-/// it must not travel on the wire. `SavedConnection.keyringRef` on the frontend is only ever the
-/// key half of the address.
-const MIXENGINE_SERVICE: &str = "mixengine";
-
-/// Reads one of MixEngine's own keyring entries by the key half of its address. Bypasses
-/// `Keeper` entirely on purpose: there is no vault, no cache and no migration for an entry that
-/// is not this app's own, and the vault would not save a single dialog for a namespace MixEngine's
-/// own process created — see the module doc's macOS paragraph, which is about entries of ours.
+/// Reads one of MixEngine's own keyring entries by the key half of its address.
+///
+/// **Through `mixengine_platform`, not through `OsStore`** — T186. On macOS the daemon keeps a
+/// home's credentials in one Keychain item, and the platform crate is what knows how to find an
+/// entry inside it. Bypasses `Keeper` entirely: that vault is this app's own. The service is
+/// `mixengine_platform::KEYRING_SERVICE`, a compile-time constant on this side too and never taken
+/// from a caller: see the module doc of `modules/db/handoff.rs` for why it must not travel on the
+/// wire. `SavedConnection.keyringRef` on the frontend is only ever the key half of the address.
+///
+/// One `Host` for the run, so the platform's cache of the daemon's vault is too.
 ///
 /// `Ok(None)` for an entry that is not there. MixEngine removes an entry when whatever owned it
 /// is gone, and a reference outliving its credential is that account's normal end, not a failure —
 /// the caller shows the same empty-password form a connection that was never saved would.
 fn read_mixengine_entry(key: &str) -> Result<Option<String>, AppError> {
-    OsStore::new(MIXENGINE_SERVICE).read(key)
+    static HOST: OnceLock<std::sync::Arc<dyn mixengine_platform::Host>> = OnceLock::new();
+
+    HOST.get_or_init(mixengine_platform::host)
+        .keyring()
+        .secret(mixengine_platform::KEYRING_SERVICE, key)
+        .map_err(|e| err!("error.cannotReadPassword", message = e))
 }
 
 /// Every account's secrets as MixDB left them, and the accounts that could not be read.
@@ -913,17 +919,25 @@ mod tests {
     #[test]
     #[ignore]
     fn a_mixengine_entry_round_trips_and_a_missing_one_is_none() {
-        let key = format!("mixdb-test-{}", uuid::Uuid::new_v4());
+        // Written the way the daemon writes it (T186): through the platform crate, at an address
+        // with a home in front, which on macOS lands inside that home's vault item.
+        let home = uuid::Uuid::new_v4().simple().to_string();
+        let key = format!("{home}/mariadb@main/root");
+        let host = mixengine_platform::host();
+        let keyring = host.keyring();
         assert_eq!(super::read_mixengine_entry(&key).unwrap(), None);
 
-        let entry = keyring::Entry::new(super::MIXENGINE_SERVICE, &key).unwrap();
-        entry.set_password("hunter2").unwrap();
+        keyring
+            .set_secret(mixengine_platform::KEYRING_SERVICE, &key, "hunter2")
+            .unwrap();
         assert_eq!(
             super::read_mixengine_entry(&key).unwrap(),
             Some("hunter2".to_string())
         );
 
-        entry.delete_credential().unwrap();
+        keyring
+            .forget_secret(mixengine_platform::KEYRING_SERVICE, &key)
+            .unwrap();
         assert_eq!(super::read_mixengine_entry(&key).unwrap(), None);
     }
 }

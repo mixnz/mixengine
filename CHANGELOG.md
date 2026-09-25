@@ -9,6 +9,10 @@
   The next `.pkg` opens in Installer.app, and when it is done MixEngine restarts on the new version
   with your services. Install the first version that can do this by hand, once.
 
+### Changed
+- On macOS, an update asks for your login password once for MixEngine's database passwords, not
+  once for each of them.
+
 ### Fixed
 - On macOS, opening MixLab again after closing its window to the tray shows the window. Before, only
   the tray's Open MixLab did.
