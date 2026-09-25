@@ -1,0 +1,22 @@
+[package]
+name = "mixengine-trampoline"
+description = "What <root>/bin holds per command name on Windows: asks mixengine-shim which program, then becomes it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "mixengine-trampoline"
+path = "src/main.rs"
+
+[dependencies]
+# **The only dependency, and `workspace_layering.rs` keeps it that way.** This file is copied once
+# per command name on Windows, so everything it links is paid for dozens of times: no core, no
+# tokio, no serde. `handover` is the one feature of the platform crate that brings none of those.
+mixengine-platform = { workspace = true, features = ["handover"] }
+
+[lints]
+workspace = true

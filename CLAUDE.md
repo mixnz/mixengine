@@ -29,6 +29,7 @@ crates/
   mixengine-elevate/     One-shot elevated binary (minimal, audited, self-validating)
   mixengine-cli/         `mix` binary
   mixengine-shim/        the version-resolving shim, copied into `<root>/bin` per command name
+  mixengine-trampoline/  what `<root>/bin` holds per name on Windows: asks the shim, then becomes it
   mixengine-testkit/     Shared test fixtures — **dev-dependency only**, never in a shipped binary
 apps/
   desktop/               the desktop application (MixLab from phase 12): a Vite + React frontend,
