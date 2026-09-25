@@ -208,8 +208,8 @@ jobs:
         # Upstream has never built MongoDB for Windows on ARM, at any version.
         run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "bin/mongod --version" mongodb 8.3.11 MIXENGINE_MONGODB_PACKAGE
 
-      # `--bins` is not optional: the harness needs `mixengined` and `mixengine-shim` beside `mix`,
-      # and `--test` builds only its own package's binaries.
+      # `--bins` is not optional: the harness needs `mixengined`, `mixengine-shim` and, since T185,
+      # `mixengine-trampoline` beside `mix`, and `--test` builds only its own package's binaries.
       - name: Build the suites this leg runs
         shell: bash
         env:

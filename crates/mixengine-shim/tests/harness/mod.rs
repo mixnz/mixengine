@@ -131,6 +131,36 @@ impl Home {
         self.fill_bin_also_fronting(&[name]);
     }
 
+    /// Fill `bin/` from copies of this build's shim and trampoline put in `install` — T185.
+    ///
+    /// For a test that replaces the resolver while a program is running, which it may not do to the
+    /// build directory every other test is reading from.
+    pub(crate) fn fill_bin_from(&self, install: &Path) -> shims::Refreshed {
+        let built = Path::new(env!("CARGO_BIN_EXE_mixengine-shim"))
+            .parent()
+            .expect("the build directory");
+
+        for name in [shims::BINARY, shims::TRAMPOLINE] {
+            let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+
+            // The trampoline is only needed, and only required to be built, on Windows.
+            if built.join(&file).is_file() {
+                std::fs::copy(built.join(&file), install.join(&file))
+                    .unwrap_or_else(|error| panic!("copy {file} into the test's install: {error}"));
+            }
+        }
+
+        let source = shims::source(&install.join("mixengined")).expect("both copied");
+        let bin = self.path().join("bin");
+
+        // Emptied first: `fs::copy` keeps the modification time on Windows, so a `bin/` already
+        // filled from the build directory would look current and keep naming *those* files.
+        shims::clear(&bin).expect("bin/ can be emptied");
+
+        shims::refresh(&bin, &source, &self.client_extras())
+            .expect("bin/ can be filled in a temporary home")
+    }
+
     fn fill_bin_also_fronting(&self, names: &[&str]) -> shims::Refreshed {
         let mut extra = self.client_extras();
 

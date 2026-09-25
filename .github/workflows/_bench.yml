@@ -124,6 +124,14 @@ jobs:
           CARGO_NET_OFFLINE: "true"
         run: cargo build --release -p mixengine-testkit --bin fakeservice --locked --offline
 
+      # T185: on Windows `bin/` holds the trampoline, which is another package's binary, so a test
+      # target of `mixengine-shim` does not build it either. Built everywhere, used on Windows.
+      - name: Build the trampoline the shim is reached through on Windows
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo build --release -p mixengine-trampoline --locked --offline
+
       # And the daemon the M3 suite drives, for the same reason and a different one: `mixengined` is
       # another package, so `cargo test -p mixengine-cli` never builds it — the suite finds it beside
       # the `mix` it was given, which is exactly how a released `mix` finds it at run time.

@@ -41,6 +41,11 @@
 //! run, so a regression in them is visible in the log, and `really_ran` is what keeps them
 //! measurements of a shim that really became something.
 //!
+//! **Since T185 the Windows row has a third process in it.** `bin/php.exe` there is the trampoline,
+//! which runs the shim for the resolution and then starts the program itself; the extra creation
+//! measured 10–15 ms on a developer machine against a full chain whose run-to-run noise was wider
+//! than that. The table above predates it.
+//!
 //! # The failure this file would otherwise have is a pass
 //!
 //! A shim that resolves nothing is far faster than one that hands over, so a broken home, an empty

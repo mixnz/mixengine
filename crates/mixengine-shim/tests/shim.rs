@@ -493,3 +493,91 @@ fn asked_by_a_trampoline_a_refusal_is_unchanged_and_writes_no_record() {
     assert!(said.starts_with("php: "), "{said}");
     assert!(said.contains("8.1.30"), "{said}");
 }
+
+/// **The property T185 rests on.** A program started through `bin/` is still running, and the
+/// resolver — the file an upgrade replaces — is not held by it. On Windows the trampoline is the
+/// one that waits; on Unix the shim has `exec`ed away. Either way the resolver is nobody's.
+#[test]
+fn the_resolver_can_be_replaced_while_a_program_it_resolved_is_running() {
+    let home = Home::with(&["8.3.33"]);
+    let project = home.project("blog", Some("[runtimes]\nphp = \"8.3.33\"\n"));
+    let install = tempfile::tempdir().expect("an install directory");
+    home.fill_bin_from(install.path());
+
+    let started = project.join("started");
+    let mut running = Command::new(home.shim("php"))
+        .current_dir(&project)
+        .env("MIXENGINE_HOME", home.path())
+        .arg("--touch")
+        .arg(&started)
+        .args(["--exit-after", "10000"])
+        .spawn()
+        .expect("php starts");
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while !started.exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the program never started"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+
+    let resolver =
+        install
+            .path()
+            .join(format!("{}{}", shims::BINARY, std::env::consts::EXE_SUFFIX));
+    // Written over in place, which is what `updates::apply` does to an installed binary — not
+    // removed: Windows lets a running program's *name* be deleted and still refuses its *bytes*.
+    let replaced = std::fs::copy(env!("CARGO_BIN_EXE_mixengine-shim"), &resolver);
+
+    let _ = running.kill();
+    let _ = running.wait();
+
+    replaced.expect("the resolver is not held by the running program");
+}
+
+/// A trampoline with no pointer says which file, and exits as a missing command does.
+#[test]
+fn a_trampoline_that_cannot_find_the_resolver_names_the_file() {
+    if !cfg!(windows) {
+        return;
+    }
+
+    let home = Home::with(&["8.3.33"]);
+    let project = home.project("blog", Some("[runtimes]\nphp = \"8.3.33\"\n"));
+    std::fs::remove_file(home.path().join("bin").join("mixengine-shim.path"))
+        .expect("the pointer was there");
+
+    let ran = Command::new(home.shim("php"))
+        .current_dir(&project)
+        .env("MIXENGINE_HOME", home.path())
+        .output()
+        .expect("the trampoline runs");
+
+    let said = String::from_utf8_lossy(&ran.stderr);
+    assert_eq!(ran.status.code(), Some(127), "{said}");
+    assert!(said.starts_with("php: "), "{said}");
+    assert!(said.contains("mixengine-shim.path"), "{said}");
+}
+
+/// A refusal reaches the person once, in the resolver's words, whichever program they ran.
+#[test]
+fn a_refusal_through_bin_is_said_once() {
+    let home = Home::with(&["8.3.33"]);
+    let project = home.project("legacy", Some("[runtimes]\nphp = \"8.1.30\"\n"));
+
+    let ran = Command::new(home.shim("php"))
+        .current_dir(&project)
+        .env("MIXENGINE_HOME", home.path())
+        .output()
+        .expect("php runs");
+
+    let said = String::from_utf8_lossy(&ran.stderr);
+    assert_eq!(ran.status.code(), Some(127), "{said}");
+    assert!(
+        said.lines().all(|line| line.starts_with("php: ")),
+        "every line is the resolver's, named as the command typed: {said}"
+    );
+    assert!(said.contains("8.1.30"), "{said}");
+}
