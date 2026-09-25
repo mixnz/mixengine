@@ -19,6 +19,9 @@
 Unicode true
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
+; Common controls 6, which draw the progress bar as a marquee (T182b) and give every page the
+; system's own look.
+XPStyle on
 
 !include "WinMessages.nsh"
 !include "LogicLib.nsh"
@@ -153,6 +156,27 @@ Var Stuck
   ${If} ${Errors}
     StrCpy $Stuck "$Stuck$\r$\n${FILE}"
   ${EndIf}
+!macroend
+
+; The progress bar runs as a marquee while one long command runs — T182b. A section runs in a
+; thread of its own and the window keeps pumping messages, so the bar animates by itself while
+; `mix uninstall` removes a gigabyte, instead of standing still for a minute. 1004 is the bar on the
+; progress page; PBS_MARQUEE is 0x08 and PBM_SETMARQUEE is WM_USER + 10. Silent, there is no window,
+; and every call below lands on nothing.
+!macro MarqueeOn
+  FindWindow $R8 "#32770" "" $HWNDPARENT
+  GetDlgItem $R9 $R8 1004
+  System::Call "user32::GetWindowLongW(p R9, i -16) i .R7"
+  IntOp $R7 $R7 | 0x08
+  System::Call "user32::SetWindowLongW(p R9, i -16, i R7)"
+  SendMessage $R9 0x40A 1 30
+!macroend
+
+!macro MarqueeOff
+  SendMessage $R9 0x40A 0 0
+  System::Call "user32::GetWindowLongW(p R9, i -16) i .R7"
+  IntOp $R7 $R7 & 0xFFFFFFF7
+  System::Call "user32::SetWindowLongW(p R9, i -16, i R7)"
 !macroend
 
 ; RemoveChecked, tried once a second for 30 seconds — T182b, D8. For `mixengined.exe` only: `mix
@@ -493,8 +517,10 @@ Section "Uninstall"
   ; D5), and MixLab stays installed so this can run again.
   Call un.Flags
   DetailPrint "Undoing what MixLab changed on this machine."
+  !insertmacro MarqueeOn
   nsExec::ExecToLog '"$INSTDIR\mix.exe" uninstall --yes$R1'
   Pop $0
+  !insertmacro MarqueeOff
   ${If} $0 != 0
     MessageBox MB_ICONSTOP "MixLab could not finish undoing its changes to this machine, so it is still installed. Run Uninstall again from Installed apps to finish. The details are in the log above." /SD IDOK
     SetErrorLevel 2

@@ -3066,6 +3066,10 @@ async fn uninstall(
         return Ok(ExitCode::SUCCESS);
     }
 
+    // Measured now, from the plan, while nothing is being removed: what `left_behind` says while it
+    // waits is how much there is to remove (T182b).
+    let removing = bytes_going(&planned);
+
     let started: JobSummary = ask(
         &mut client,
         rpc::method::DAEMON_UNINSTALL,
@@ -3105,7 +3109,7 @@ async fn uninstall(
         render::uninstall_report(&report)
     }))?;
 
-    let still_there = left_behind(&report, endpoint, daemon).await;
+    let still_there = left_behind(&report, endpoint, daemon, removing).await;
 
     // **And the process itself** (the T182b design, D8). The endpoint goes quiet before the daemon
     // has finished removing its home and exited, and until it has, its image is still mapped: the
@@ -3172,6 +3176,50 @@ fn has_ended(pid: u32, began: mixengine_platform::process::StartTime) -> bool {
         .ok()
         .flatten()
         .is_some_and(|now| now == began)
+}
+
+/// How many bytes the directories this plan removes hold — the home, the relocated directories and
+/// the window's folders that are `Planned` (T182b).
+///
+/// **Without following a link**, since a removal does not either, and with every unreadable entry
+/// counted as nothing: this is a figure for a person, and a wrong one is only a wrong figure.
+fn bytes_going(plan: &UninstallReport) -> u64 {
+    plan.items
+        .iter()
+        .filter(|item| matches!(item.outcome, Removal::Planned { .. }))
+        .filter(|item| {
+            matches!(
+                item.id,
+                ResidueId::Home
+                    | ResidueId::RelocatedDirectory
+                    | ResidueId::WindowData
+                    | ResidueId::WindowCache
+            )
+        })
+        .map(|item| bytes_under(std::path::Path::new(&item.location)))
+        .sum()
+}
+
+/// The size of everything under `path`, or of `path` itself when it is a file.
+fn bytes_under(path: &std::path::Path) -> u64 {
+    let mut total = 0;
+    let mut waiting = vec![path.to_path_buf()];
+
+    while let Some(current) = waiting.pop() {
+        let Ok(metadata) = std::fs::symlink_metadata(&current) else {
+            continue;
+        };
+
+        if metadata.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&current) {
+                waiting.extend(entries.filter_map(Result::ok).map(|entry| entry.path()));
+            }
+        } else {
+            total += metadata.len();
+        }
+    }
+
+    total
 }
 
 /// Print, and then remove, what the daemon `pid` said about a removal it could not finish.
@@ -3556,11 +3604,19 @@ const PROCESS_GONE: std::time::Duration = std::time::Duration::from_secs(120);
 /// **A daemon whose process has ended will not remove anything more**, so once `daemon` has gone the
 /// paths are read one last time and answered, rather than waited on for the rest of the budget
 /// (T182b: a home held open by File Explorer kept the uninstaller waiting a minute for nothing).
+///
+/// **And it says that it is waiting** (T182b). Removing a home of a gigabyte takes a minute on
+/// Windows, and a person watching the uninstaller saw nothing move for all of it: one line when the
+/// wait begins, with how much is going, and one every [`STILL`] after.
 async fn left_behind(
     report: &UninstallReport,
     endpoint: &Endpoint,
     daemon: Option<(u32, mixengine_platform::process::StartTime)>,
+    removing: u64,
 ) -> Vec<String> {
+    /// How often a line says the removal is still going.
+    const STILL: std::time::Duration = std::time::Duration::from_secs(10);
+
     /// How often the paths are looked at while the daemon finishes.
     const STEP: std::time::Duration = std::time::Duration::from_millis(100);
 
@@ -3588,11 +3644,19 @@ async fn left_behind(
         return Vec::new();
     }
 
+    let _ = writeln!(
+        std::io::stderr(),
+        "{}",
+        render::uninstall_removing(going.len(), removing)
+    );
+
     if !Client::gone(endpoint, GOING).await {
         report_left("this home's daemon is still running, so nothing of its own has been removed");
     }
 
-    let deadline = tokio::time::Instant::now() + GOING;
+    let began = tokio::time::Instant::now();
+    let deadline = began + GOING;
+    let mut said = began;
 
     loop {
         // Asked before the paths are read, so the reading after it is one the daemon cannot change.
@@ -3616,6 +3680,15 @@ async fn left_behind(
 
         if left.is_empty() || ended || tokio::time::Instant::now() + STEP >= deadline {
             return left;
+        }
+
+        if said.elapsed() >= STILL {
+            said = tokio::time::Instant::now();
+            let _ = writeln!(
+                std::io::stderr(),
+                "{}",
+                render::uninstall_still_removing(began.elapsed())
+            );
         }
 
         tokio::time::sleep(STEP).await;

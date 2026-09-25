@@ -2068,6 +2068,24 @@ fn size(bytes: u64) -> String {
     }
 }
 
+/// What `mix uninstall` prints when it starts waiting for the directories to go — T182b.
+pub(crate) fn uninstall_removing(directories: usize, bytes: u64) -> String {
+    let what = match directories {
+        1 => "1 folder".to_owned(),
+        count => format!("{count} folders"),
+    };
+
+    match bytes {
+        0 => format!("removing {what}, this can take a minute"),
+        _ => format!("removing {what} ({}), this can take a minute", size(bytes)),
+    }
+}
+
+/// And every so often while it waits, so a person can see it has not stopped.
+pub(crate) fn uninstall_still_removing(waited: std::time::Duration) -> String {
+    format!("still removing, {}s so far", waited.as_secs())
+}
+
 /// A list of services, in the order the daemon gave them.
 fn names(services: &[ServiceId]) -> String {
     match services.is_empty() {
@@ -4991,6 +5009,23 @@ mod tests {
         assert!(rendered.contains(package), "{rendered}");
         assert!(rendered.contains("sudo installer -pkg"), "{rendered}");
         assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+    }
+
+    /// T182b. The wait for the folders to go says how much is going, and then that it is still going.
+    #[test]
+    fn the_wait_for_a_removal_says_what_it_is_waiting_for() {
+        assert_eq!(
+            uninstall_removing(3, 1_073_741_824),
+            "removing 3 folders (1024 MiB), this can take a minute"
+        );
+        assert_eq!(
+            uninstall_removing(1, 0),
+            "removing 1 folder, this can take a minute"
+        );
+        assert_eq!(
+            uninstall_still_removing(std::time::Duration::from_millis(20_400)),
+            "still removing, 20s so far"
+        );
     }
 
     /// T182b, D5. A Linux machine with no desktop session opens nothing: the command is printed as
