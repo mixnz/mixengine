@@ -454,6 +454,11 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       install moves `bin/` to the trampoline. Whether an update may add a binary is its own ADR.
       Left for later, in the spec: where the shim's own 50–80 ms on Windows goes (T29's), and a
       size profile for the shim itself, now one file rather than one per name.
+- [ ] **T185a** An install completes itself from its own payload: the first start after an update
+      copies `mixengine-trampoline` in from the running version's staged payload, so an in-place
+      Windows update gets T185's `bin/` without a reinstall. An update still adds nothing.
+      [ADR 0054](../decisions/0054-an-install-completes-itself-from-its-own-payload.md),
+      design: [T185a](../specs/2026-09-25-t185a-an-install-completes-itself-design.md).
 
 **Milestone M7** — after 30 idle minutes only `mixengined` + the web server are running, and the next
 request still succeeds within budget.
