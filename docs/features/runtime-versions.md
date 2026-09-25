@@ -76,7 +76,8 @@ the shim binary wherever the filesystem gives one file a second name, and a copy
 it does not, which on Windows is always: a shim there outlives the program it starts, so a link would
 let a running `php -S` hold the shim binary itself open against the next upgrade. On Windows those
 copies are of the trampoline (~360 KB) rather than the shim (~5.6 MB), which took a 38-command
-`bin/` from about 223 MB to about 14 MB (T185). Either way the file in `bin/` dispatches on the name
+`bin/` from about 223 MB to about 14 MB (T185); an install that updated itself onto that release
+gets the trampoline at its first start (T185a). Either way the file in `bin/` dispatches on the name
 it was invoked by. Putting the directory on the PATH is
 `path.install`, which is asked for rather than assumed, and
 `path.uninstall` reverses it.

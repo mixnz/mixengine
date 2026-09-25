@@ -88,6 +88,15 @@ too.
   are in `/usr/local/bin` and whose window is in `/Applications`, keeps its window, and MixLab says so
   rather than leaving a new daemon beside an old window in silence. The window arrives by installer,
   and only by installer.
+- **An install completes itself from its own payload, and an update still adds nothing** — roadmap
+  task **T185a**, [ADR 0054](../decisions/0054-an-install-completes-itself-from-its-own-payload.md).
+  At every start a copy MixEngine updates itself (`SelfUpdatable`) checks whether a name on
+  `updates::complete::COMPLETABLE` is missing beside `mixengined`: today only
+  `mixengine-trampoline`, and never the window. If the payload it was updated from is still in
+  `cache/updates/<version>/` and its `mixengined` is byte for byte the running one, the name is
+  copied in, recorded, and `bin/` is refreshed; the staging directory is then removed, and kept only
+  when a copy failed. `mix uninstall` removes what was recorded, because an `uninstall.exe` older
+  than the file does not know its name.
 - **The window relaunches itself, and the daemon does not do it for it.** After `update.apply`
   answers, MixLab asks whether the file that was replaced is the file it is running from — the
   directory the daemon reports, joined with the name of whatever an installer placed — and if it is,

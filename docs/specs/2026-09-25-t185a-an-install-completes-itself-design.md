@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-25
 task: T185a
 ---
@@ -82,7 +82,9 @@ In `main.rs`, as `Updates::complete_install`:
 3. Call `complete`. For each name in `added`, log `info` and append it to the store record
    `updates::records::COMPLETED`, a JSON list of names, deduplicated. For each entry in `failed`,
    log `warn`.
-4. **Staging ownership.** If `failed` is empty, remove `staged`. If not, keep it for the next start.
+4. **Staging ownership.** Remove `staged` unless a copy failed on the install's side
+   (`Completed::worth_retrying`). Another build, the wrong shape or a name the payload does not
+   carry would fail the same way at every start, so the payload is not kept for those.
 
 The order is: placement, then a `stat` per completable name, then the staging directory, then the
 hash. A start with nothing missing does steps 1 and 2 of D2 and returns.

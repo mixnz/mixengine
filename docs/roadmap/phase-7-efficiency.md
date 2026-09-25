@@ -454,11 +454,19 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       install moves `bin/` to the trampoline. Whether an update may add a binary is its own ADR.
       Left for later, in the spec: where the shim's own 50–80 ms on Windows goes (T29's), and a
       size profile for the shim itself, now one file rather than one per name.
-- [ ] **T185a** An install completes itself from its own payload: the first start after an update
+- [x] **T185a** An install completes itself from its own payload: the first start after an update
       copies `mixengine-trampoline` in from the running version's staged payload, so an in-place
       Windows update gets T185's `bin/` without a reinstall. An update still adds nothing.
       [ADR 0054](../decisions/0054-an-install-completes-itself-from-its-own-payload.md),
       design: [T185a](../specs/2026-09-25-t185a-an-install-completes-itself-design.md).
+      **Proved end to end by `self_update.rs`**, whose payload now carries a binary the install
+      lacks: the swap keeps it out, the new daemon's first start copies it in, removes the staging
+      directory, and on Windows `bin\php.exe` is the trampoline — mutation-checked by skipping the
+      second `bin/` refresh. **And by a real run on Windows**: an install without the trampoline and
+      a staged payload started into `added=["mixengine-trampoline"]`, a `bin\` of trampolines, an
+      empty `cache\updates`, and a `mix uninstall --dry-run` row naming the file.
+      The staging directory of the running version is now removed by its first start, which also
+      ends the ~30 MB each self-update used to leave in the cache.
 
 **Milestone M7** — after 30 idle minutes only `mixengined` + the web server are running, and the next
 request still succeeds within budget.
