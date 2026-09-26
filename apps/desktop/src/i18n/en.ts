@@ -176,6 +176,7 @@ const en = {
       "The MixEngine pipe at {{endpoint}} is held by {{owner}}, not by this account.",
     mixengineRefused: "MixEngine refused: {{message}}",
     mixengineStartFailed: "Could not start MixEngine: {{message}}",
+    updateDaemonWouldNotStop: "MixEngine did not stop within 30 seconds, so nothing was replaced. Try again in a moment.",
     mixengineStorageFailed: "Could not read where MixEngine keeps its files: {{message}}",
     mixengineProtocol: "MixEngine answered something this version does not understand: {{message}}",
     // SSH

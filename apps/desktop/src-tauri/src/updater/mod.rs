@@ -10,6 +10,7 @@
 pub mod feed;
 pub mod lock;
 pub mod placement;
+pub mod records;
 
 /// Where the feed is published: the stable release-asset redirect, not the rate-limited API.
 pub const FEED_URL: &str = "https://github.com/mixnz/mixlab/releases/latest/download/latest.json";
