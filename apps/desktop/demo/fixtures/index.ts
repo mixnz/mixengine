@@ -6,6 +6,7 @@ import { pluginHandlers } from "./plugins";
 import { restFiles, restHandlers } from "./rest";
 import { syncHandlers } from "./sync";
 import { terminalFiles, terminalHandlers } from "./terminal";
+import { updateHandlers } from "./update";
 
 /** Every scene gets every fixture: a scene is a session, not a different set of answers. */
 export const handlers: Handlers = {
@@ -15,5 +16,6 @@ export const handlers: Handlers = {
   ...restHandlers,
   ...terminalHandlers,
   ...syncHandlers,
+  ...updateHandlers,
   ...storeHandlers({ ...dbFiles, ...restFiles, ...terminalFiles }),
 };
