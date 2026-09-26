@@ -2365,4 +2365,145 @@ mod tests {
             Duration::from_millis(1)
         );
     }
+
+    /// A home with `bin/`, `etc/caddy/` and `data/`, each holding a file, and a relocated `logs/`
+    /// beside it holding `daemon.log` — the layout the real uninstalls met.
+    #[cfg(windows)]
+    fn a_home_with_relocated_logs() -> (tempfile::TempDir, PathBuf, PathBuf) {
+        let root = tempfile::tempdir().expect("tempdir");
+        let home = root.path().join("MixEngine");
+        for inner in ["bin", "etc/caddy", "data"] {
+            std::fs::create_dir_all(home.join(inner)).expect("a directory");
+            std::fs::write(home.join(inner).join("file"), b"x").expect("a file");
+        }
+        let logs = root.path().join("mixlab_data").join("logs");
+        std::fs::create_dir_all(&logs).expect("the relocated logs");
+        std::fs::write(logs.join("daemon.log"), b"x").expect("a log");
+        (root, home, logs)
+    }
+
+    /// A program started *apart from* this test process — not its child — the way VS Code, File
+    /// Explorer or a terminal is not the daemon's child: the removal spares the daemon's own
+    /// descendants, so a child of the test would be spared and prove nothing. PowerShell's
+    /// `Start-Process` starts it hidden and exits, which leaves it with no living parent in this
+    /// test's family. `directory` reaches it through the environment rather than inside a quoted
+    /// string. Returns its pid, once it can be seen holding `directory`.
+    #[cfg(windows)]
+    fn apart_holding(directory: &Path, start_process: &str) -> u32 {
+        let started = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", start_process])
+            .env("T182E_WATCHED", directory)
+            .output()
+            .expect("PowerShell starts the program");
+        let pid: u32 = String::from_utf8_lossy(&started.stdout)
+            .trim()
+            .parse()
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Start-Process gave no pid: {}",
+                    String::from_utf8_lossy(&started.stderr)
+                )
+            });
+
+        let parent = directory.parent().expect("a parent").to_path_buf();
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
+            let held = mixengine_platform::occupants::held_under(
+                std::slice::from_ref(&parent),
+                Some(std::process::id()),
+            );
+            if held
+                .iter()
+                .any(|item| item.holders.iter().any(|holder| holder.pid == pid))
+            {
+                return pid;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        end(pid);
+        panic!("pid {pid} was never seen holding {}", directory.display());
+    }
+
+    /// A watch on `directory`, from a program apart from this test.
+    #[cfg(windows)]
+    fn apart_watching(directory: &Path) -> u32 {
+        apart_holding(
+            directory,
+            "(Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList \
+             '-NoProfile','-NonInteractive','-Command',\
+             '$w = New-Object IO.FileSystemWatcher $env:T182E_WATCHED; \
+             $w.EnableRaisingEvents = $true; Start-Sleep -Seconds 60').Id",
+        )
+    }
+
+    /// A program apart from this test whose working directory is `directory` — a terminal in it.
+    #[cfg(windows)]
+    fn apart_standing_in(directory: &Path) -> u32 {
+        apart_holding(
+            directory,
+            "(Start-Process ping -WindowStyle Hidden -PassThru -WorkingDirectory \
+             $env:T182E_WATCHED -ArgumentList '-n','60','127.0.0.1').Id",
+        )
+    }
+
+    #[cfg(windows)]
+    fn end(pid: u32) {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/PID", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+
+    /// T182e, D5, end to end: other programs watching `bin/` and `etc/caddy/` — VS Code and File
+    /// Explorer on the machine that found this — do not keep the home. The removal moves both
+    /// watched folders out on its own and every armed directory goes, relocated `logs/` included.
+    #[cfg(windows)]
+    #[test]
+    fn watched_folders_do_not_keep_the_home() {
+        let (_root, home, logs) = a_home_with_relocated_logs();
+        let watchers = [
+            apart_watching(&home.join("bin")),
+            apart_watching(&home.join("etc").join("caddy")),
+        ];
+
+        remove_what_the_uninstall_armed(&[home.clone(), logs.clone()], &home.join("bin"));
+
+        watchers.into_iter().for_each(end);
+        assert!(!home.exists(), "the home was kept");
+        assert!(!logs.exists(), "the relocated logs were kept");
+        assert!(
+            mixengine_platform::tombstone::tombstones_beside(&home).is_empty(),
+            "{:?}",
+            mixengine_platform::tombstone::tombstones_beside(&home)
+        );
+    }
+
+    /// T182e, D5, end to end: a program standing in `data/` cannot be moved past, and the removal
+    /// puts every directory back — nothing half deleted — and names it in the note `mix` reads.
+    #[cfg(windows)]
+    #[test]
+    fn a_program_standing_in_the_home_keeps_all_of_it() {
+        let (_root, home, logs) = a_home_with_relocated_logs();
+        let standing = apart_standing_in(&home.join("data"));
+
+        remove_what_the_uninstall_armed(&[home.clone(), logs.clone()], &home.join("bin"));
+
+        let note =
+            std::fs::read_to_string(mixengine_platform::tombstone::note_for(std::process::id()))
+                .unwrap_or_default();
+        end(standing);
+
+        for kept in ["bin/file", "etc/caddy/file", "data/file"] {
+            assert!(home.join(kept).exists(), "{kept} was not put back");
+        }
+        assert!(
+            logs.join("daemon.log").exists(),
+            "the relocated logs were not put back"
+        );
+        assert!(
+            note.contains(&format!("({standing})")),
+            "the note does not name the program standing in data: {note}"
+        );
+    }
 }
