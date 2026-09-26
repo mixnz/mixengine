@@ -40,6 +40,9 @@ function cargo(args) {
   try {
     return execFileSync("cargo", args, {
       cwd: ROOT,
+      // CI sets CARGO_TERM_COLOR=always, and `cargo tree` then colours its `(*)` markers: the
+      // lines no longer match the filter below and the fingerprint differs from a terminal's.
+      env: { ...process.env, CARGO_TERM_COLOR: "never" },
       encoding: "utf8",
       maxBuffer: 256 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
