@@ -523,11 +523,11 @@ enum ProjectCommand {
         project: WhichProject,
 
         /// A new name.
-        ///
-        /// `id` spelled out because the flattened project argument is also called `name`, and clap
-        /// refuses two arguments under one id — it did so at *parse* time, so `mix project update
-        /// blog --name blogging` panicked instead of running. Found by T77's
-        /// `every_command_is_one_clap_can_build`, which is now what stops the next one.
+        //
+        // `id` spelled out because the flattened project argument is also called `name`, and clap
+        // refuses two arguments under one id — it did so at *parse* time, so `mix project update
+        // blog --name blogging` panicked instead of running. Found by T77's
+        // `every_command_is_one_clap_can_build`, which is now what stops the next one.
         #[arg(long, id = "new_name", value_name = "NAME")]
         name: Option<String>,
 
@@ -764,13 +764,13 @@ enum BlueprintCommand {
 
         /// Start the services this project needs once the apply is done.
         ///
-        /// **This project's, not this home's** — roadmap task **T125**. Which services those are is
-        /// the daemon's answer and not this command's: the sites the apply just made, the database
-        /// and the pool they declare, and the front end they are reached through. Until T125 the
-        /// only set a client could ask for was *every service this home declares*.
-        ///
-        /// Runs after the elevation, because a site served at a name the hosts file does not
-        /// resolve is a browser error with a progress bar in front of it.
+        /// These are the project's sites, the database and pool they use, and the front end they
+        /// are reached through, not every service of this home. They start after the permission
+        /// prompt, so every site's name already resolves when it comes up.
+        //
+        // Roadmap task T125: which services those are is the daemon's answer and not this
+        // command's. Until T125 the only set a client could ask for was every service this home
+        // declares.
         #[arg(long)]
         start: bool,
 
@@ -1583,15 +1583,13 @@ enum JobCommand {
         job: i64,
     },
 
-    /// What a job printed — roadmap task **T78a**.
+    /// What a job printed.
     ///
-    /// **Only a job that runs somebody else's program prints anything**, which today is an apply
-    /// running a blueprint's own `[scaffold]` command. Everything else a job does is reported as
-    /// progress and as its result, and this answers nothing for those rather than pretending output
-    /// was lost.
-    ///
-    /// The lines live in memory for as long as the daemon keeps the job's log, so this is what to
-    /// read while one runs rather than a record to come back to a week later.
+    /// Only a job that runs another program prints anything. Today that is an apply running a
+    /// blueprint's `[scaffold]` command; other jobs report progress and a result, and show nothing
+    /// here. The lines stay in memory while the daemon keeps the job, so read them while it runs.
+    //
+    // Roadmap task T78a.
     Logs {
         /// The job, as `mix job list` numbers them.
         #[arg(value_name = "JOB")]
