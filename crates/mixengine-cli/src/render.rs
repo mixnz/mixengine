@@ -5148,12 +5148,14 @@ mod tests {
 
     #[test]
     fn a_daemon_from_another_build_is_explained_rather_than_left_to_be_noticed() {
+        // 0.0.0 because no build is ever numbered that: a real version here became the workspace's
+        // own at the v0.0.9 bump, and the daemon stopped being from another build.
         let mut older = example();
-        older.version = "0.0.9".to_owned();
+        older.version = "0.0.0".to_owned();
 
         let rendered = status(&older);
         assert!(rendered.contains("has not been restarted"), "{rendered}");
-        assert!(rendered.contains("0.0.9"), "{rendered}");
+        assert!(rendered.contains("0.0.0"), "{rendered}");
 
         // And the ordinary case says nothing, because a note on every line of a status somebody
         // reads daily is a note nobody reads.
@@ -5170,7 +5172,8 @@ mod tests {
     #[test]
     fn a_daemon_that_reported_neither_names_nor_elevation_says_so_and_invents_nothing() {
         let older = DaemonStatus {
-            version: "0.0.9".to_owned(),
+            // Never a build's own version; see the test above.
+            version: "0.0.0".to_owned(),
             elevation: None,
             dns: None,
             ..example()
