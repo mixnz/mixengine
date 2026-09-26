@@ -151,6 +151,14 @@ to:
    deletion half-way.
 2. **If any rename fails, rename back the ones already renamed and delete nothing.** The error names
    the directory; `mix uninstall` reads the directories back and reports them as kept.
+   *Amended after the first real Windows uninstalls:* a refused rename is first tried again every
+   100 ms for up to 10 s, since what refuses one is usually gone a moment later — the daemon's
+   last database connection closing, a scanner reading a file just written. What is still held
+   is looked for **before** anything is put back, a directory as well as a file, and a held file
+   names its program through the Restart Manager. And the home's `bin/` is moved out on its own
+   first, to a tombstone beside the home: it is on `PATH`, editors watch every `PATH` directory,
+   and Windows refuses to rename the parent of a watched directory — measured with VS Code, which
+   kept the home on every uninstall until it was closed. It is put back with the rest on a refusal.
 3. Delete the tombstones. A tombstone that still cannot be deleted — a file opened with share-delete,
    an antivirus scan holding one for a moment — stays, and is named on stderr.
 

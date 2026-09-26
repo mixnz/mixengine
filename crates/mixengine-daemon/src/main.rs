@@ -775,7 +775,9 @@ async fn run() -> anyhow::Result<()> {
         // armed; a failure here is left for the rename to report.
         let _ = std::env::set_current_dir(std::env::temp_dir());
 
-        remove_what_the_uninstall_armed(armed);
+        // `bin/` goes out on its own first: it is on `PATH`, and an editor watching it for commands
+        // would otherwise keep the whole home (T182b, measured with VS Code).
+        remove_what_the_uninstall_armed(armed, &[home.paths.bin().to_path_buf()]);
     }
 
     served.map(|_| ())
@@ -797,15 +799,19 @@ async fn run() -> anyhow::Result<()> {
 ///
 /// A path that is already gone is not a failure: on a home with no relocation the root removes
 /// everything under it, and a `[paths]` entry pointing inside the root would be removed with it.
-fn remove_what_the_uninstall_armed(armed: &[PathBuf]) {
+///
+/// `lifted` go out of the directory holding them first, for a program watching one of them — see
+/// [`remove_all_or_nothing`](mixengine_platform::tombstone::remove_all_or_nothing).
+fn remove_what_the_uninstall_armed(armed: &[PathBuf], lifted: &[PathBuf]) {
     let pid = std::process::id();
     let note = mixengine_platform::tombstone::note_for(pid);
 
     // A note left by an earlier process that had this pid would be read as this one's.
     let _ = std::fs::remove_file(&note);
 
-    let lines: Vec<String> = match mixengine_platform::tombstone::remove_all_or_nothing(armed, pid)
-    {
+    let lines: Vec<String> = match mixengine_platform::tombstone::remove_all_or_nothing(
+        armed, lifted, pid,
+    ) {
         Ok(left) => left
             .into_iter()
             .map(|leftover| {
@@ -816,23 +822,34 @@ fn remove_what_the_uninstall_armed(armed: &[PathBuf]) {
                 )
             })
             .collect(),
-        // **The common cause is a person's own window** — File Explorer or a terminal open
-        // inside the home, which Windows will not let anything rename (T182b, measured on the
-        // first real uninstall). Said in those words, since the error code alone names neither.
-        Err(refused) => vec![match &refused.held {
-            Some(held) => format!(
-                "mixengined: {} is open in another program, so nothing of this home was \
-                 removed. close the program using it, then run the uninstall again",
-                held.display()
-            ),
-            None => format!(
-                "mixengined: {} is open in another program, such as File Explorer or a \
-                 terminal, so nothing of this home was removed. close it, then run the \
-                 uninstall again ({})",
-                refused.path.display(),
-                refused.error
-            ),
-        }],
+        // **What refused, and who, before where** (T182b): an uninstaller's log cuts a long line
+        // off, and the path is the part a person can most easily do without. What is left once
+        // the rename has been retried is something that does not let go by itself — a window or
+        // a terminal open inside the home, most often — so that is what the line tells them to
+        // close.
+        Err(refused) => {
+            let seconds = refused.tried_for.as_secs();
+            vec![match &refused.held {
+                Some(held) if !held.by.is_empty() => format!(
+                    "mixengined: nothing was removed, {} holds {} open (tried for {seconds} s). \
+                     close it, then run the uninstall again",
+                    held.by.join(", "),
+                    held.path.display()
+                ),
+                Some(held) => format!(
+                    "mixengined: nothing was removed, another program has {} open, such as File \
+                     Explorer or a terminal (tried for {seconds} s). close it, then run the \
+                     uninstall again",
+                    held.path.display()
+                ),
+                None => format!(
+                    "mixengined: nothing was removed, {} could not be moved aside: {} (tried for \
+                     {seconds} s). close any program using it, then run the uninstall again",
+                    refused.path.display(),
+                    refused.error
+                ),
+            }]
+        }
     };
 
     if lines.is_empty() {

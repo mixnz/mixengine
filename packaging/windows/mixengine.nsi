@@ -56,9 +56,9 @@ UninstallIcon "${ICON}"
 Page components
 Page directory
 Page instfiles
-UninstPage uninstConfirm
+UninstPage uninstConfirm "" un.ConfirmShow
 UninstPage custom un.ChoicesPage un.ChoicesLeave
-UninstPage instfiles
+UninstPage instfiles "" un.InstFilesShow
 
 ; The uninstaller's two choices (T182, D7). "1" keeps. Both default to keeping, which is also what
 ; `/S` gets: an unattended uninstall never deletes somebody's databases.
@@ -71,6 +71,8 @@ Var RelocatedBox
 ; Collected by the checks: files that cannot be opened, and files that could not be deleted.
 Var Locked
 Var Stuck
+; 1 while un.onInit's banner is still up, for un.ConfirmShow to take down once the window is in front.
+Var BannerUp
 
 ; "Is $1 somewhere inside $0?" — leaves 1 in $2 when it is and 0 when it is not.
 ;
@@ -177,6 +179,94 @@ Var Stuck
   System::Call "user32::GetWindowLongW(p R9, i -16) i .R7"
   IntOp $R7 $R7 & 0xFFFFFFF7
   System::Call "user32::SetWindowLongW(p R9, i -16, i R7)"
+!macroend
+
+; How much larger than NSIS's own the uninstaller's window is, in dialog units — T182b. The log is
+; what a person reads when an uninstall stops, and at NSIS's size its lines were cut off after
+; sixty characters. Dialog units, so the growth follows the display's scaling and font.
+!define GROW_X 160
+!define GROW_Y 100
+
+; Move and size the window $0 by the rectangle in $1..$4 (left, top, width, height), in the client
+; coordinates of its parent. 0x14 is SWP_NOZORDER | SWP_NOACTIVATE.
+!macro PlaceWindow
+  System::Call "user32::SetWindowPos(p r0, p 0, i r1, i r2, i r3, i r4, i 0x14)"
+!macroend
+
+; The rectangle of window $0 in the client coordinates of window $5, into $1..$4 as left, top,
+; right, bottom. $9 is scratch for the RECT.
+!macro RectIn
+  System::Call "*(i 0, i 0, i 0, i 0) p .r9"
+  System::Call "user32::GetWindowRect(p r0, p r9)"
+  System::Call "user32::MapWindowPoints(p 0, p r5, p r9, i 2)"
+  System::Call "*$9(i .r1, i .r2, i .r3, i .r4)"
+  System::Free $9
+!macroend
+
+; The client size of window ${WINDOW} into $6 (width) and $7 (height). $9 is scratch.
+!macro ClientSize WINDOW
+  System::Call "*(i 0, i 0, i 0, i 0) p .r9"
+  System::Call "user32::GetClientRect(p ${WINDOW}, p r9)"
+  System::Call "*$9(i, i, i .r6, i .r7)"
+  System::Free $9
+!macroend
+
+; Stretch the page on show to fill the area the enlarged window gives it — T182b. NSIS creates each
+; page at its template's size and only moves it into place, so a control that reaches the page's
+; right edge is widened with it and one that reaches its bottom is made taller: the log, the
+; progress bar and the text above them, and nothing else. $0-$9 and $R0-$R2 are scratch.
+!macro FitPage
+  FindWindow $R0 "#32770" "" $HWNDPARENT
+  GetDlgItem $R1 $HWNDPARENT 1018
+  !insertmacro ClientSize $R1
+  StrCpy $R2 $6
+  StrCpy $8 $7
+  !insertmacro ClientSize $R0
+  IntOp $R2 $R2 - $6
+  IntOp $8 $8 - $7
+  ${If} $R2 > 0
+  ${OrIf} $8 > 0
+    ; The page's old size, kept in $6/$7 for the edge tests below.
+    StrCpy $5 $R0
+    System::Call "user32::GetWindow(p R0, i 5) p .r0"
+    ${DoWhile} $0 != 0
+      !insertmacro RectIn
+      IntOp $3 $3 - $1
+      IntOp $4 $4 - $2
+      IntOp $9 $1 + $3
+      IntOp $9 $9 + 4
+      ${If} $9 >= $6
+        IntOp $3 $3 + $R2
+      ${EndIf}
+      IntOp $9 $2 + $4
+      IntOp $9 $9 + 4
+      ${If} $9 >= $7
+        IntOp $4 $4 + $8
+      ${EndIf}
+      !insertmacro PlaceWindow
+      System::Call "user32::GetWindow(p r0, i 2) p .r0"
+    ${Loop}
+    IntOp $6 $6 + $R2
+    IntOp $7 $7 + $8
+    ; 0x16 is SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE.
+    System::Call "user32::SetWindowPos(p R0, p 0, i 0, i 0, i r6, i r7, i 0x16)"
+  ${EndIf}
+!macroend
+
+; Size the log's one column to its longest line, and never narrower than the log — T182b. A column
+; as wide as the list cut every longer line off with an ellipsis; one as wide as its text gives the
+; list a horizontal scroll bar instead. 0x101E is LVM_SETCOLUMNWIDTH, 0x101D LVM_GETCOLUMNWIDTH;
+; -1 sizes to the text and -2 to the list. $5-$7 are scratch, so the section's $0 survives it.
+!macro FitLog
+  FindWindow $5 "#32770" "" $HWNDPARENT
+  GetDlgItem $5 $5 1016
+  SendMessage $5 0x101E 0 -1
+  SendMessage $5 0x101D 0 0 $6
+  SendMessage $5 0x101E 0 -2
+  SendMessage $5 0x101D 0 0 $7
+  ${If} $6 > $7
+    SendMessage $5 0x101E 0 $6
+  ${EndIf}
 !macroend
 
 ; RemoveChecked, tried once a second for 30 seconds — T182b, D8. For `mixengined.exe` only: `mix
@@ -394,8 +484,10 @@ Function un.onInit
   StrCpy $KeepRelocated 1
 
   StrCpy $Relocated ""
+  StrCpy $BannerUp 0
   ${IfNot} ${Silent}
     Banner::show /NOUNLOAD "Checking MixLab's folders..."
+    StrCpy $BannerUp 1
   ${EndIf}
   nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run --relocated'
   Pop $0
@@ -403,16 +495,92 @@ Function un.onInit
   ${If} $0 == 0
     StrCpy $Relocated $1
   ${EndIf}
-  ${IfNot} ${Silent}
+  ; The banner stays up until the window is in front of it — see un.ConfirmShow.
+FunctionEnd
+
+; **A larger window** — T182b. Every control below the page area moves down with the bottom edge,
+; the buttons on the right move right with it, anything reaching within 20 pixels of the right edge
+; is widened — the line beside the branding stops short of it — and the page area itself grows by
+; the whole amount. Then the window grows about its centre. $0-$9 and $R3-$R8 are scratch; nothing
+; is set yet this early.
+Function un.onGUIInit
+  System::Call "*(i 0, i 0, i ${GROW_X}, i ${GROW_Y}) p .r9"
+  System::Call "user32::MapDialogRect(p $HWNDPARENT, p r9)"
+  System::Call "*$9(i, i, i .R3, i .R4)"
+  System::Free $9
+
+  !insertmacro ClientSize $HWNDPARENT
+  StrCpy $R5 $6
+  IntOp $R8 $R5 / 2
+  StrCpy $5 $HWNDPARENT
+  GetDlgItem $0 $HWNDPARENT 1018
+  !insertmacro RectIn
+  StrCpy $R6 $4
+
+  System::Call "user32::GetWindow(p $HWNDPARENT, i 5) p .r0"
+  ${DoWhile} $0 != 0
+    !insertmacro RectIn
+    StrCpy $R7 $3
+    IntOp $3 $3 - $1
+    IntOp $4 $4 - $2
+    IntOp $9 $R7 + 20
+    System::Call "user32::GetDlgCtrlID(p r0) i .r8"
+    ${If} $8 == 1018
+      IntOp $3 $3 + $R3
+      IntOp $4 $4 + $R4
+    ${ElseIf} $2 >= $R6
+      IntOp $2 $2 + $R4
+      ${If} $1 > $R8
+        IntOp $1 $1 + $R3
+      ${ElseIf} $9 >= $R5
+        IntOp $3 $3 + $R3
+      ${EndIf}
+    ${ElseIf} $9 >= $R5
+      ${If} $1 > $R8
+        IntOp $1 $1 + $R3
+      ${Else}
+        IntOp $3 $3 + $R3
+      ${EndIf}
+    ${EndIf}
+    !insertmacro PlaceWindow
+    System::Call "user32::GetWindow(p r0, i 2) p .r0"
+  ${Loop}
+
+  System::Call "*(i 0, i 0, i 0, i 0) p .r9"
+  System::Call "user32::GetWindowRect(p $HWNDPARENT, p r9)"
+  System::Call "*$9(i .r1, i .r2, i .r3, i .r4)"
+  System::Free $9
+  IntOp $3 $3 - $1
+  IntOp $4 $4 - $2
+  IntOp $3 $3 + $R3
+  IntOp $4 $4 + $R4
+  IntOp $R3 $R3 / 2
+  IntOp $R4 $R4 / 2
+  IntOp $1 $1 - $R3
+  IntOp $2 $2 - $R4
+  StrCpy $0 $HWNDPARENT
+  !insertmacro PlaceWindow
+FunctionEnd
+
+; **In front, and only then the banner goes** — T182b, twice over. The banner from un.onInit is this
+; process's window in the foreground, which is what lets this process put another window in front:
+; destroyed first, as it was, the foreground passed to whatever was under it, and Windows then
+; refused the window's own BringToFront — it opened behind other programs and had to be found on
+; the taskbar. So the window is shown and brought forward while the banner still holds the
+; foreground, and the banner goes after.
+Function un.ConfirmShow
+  !insertmacro FitPage
+  ${If} $BannerUp == 1
+    ShowWindow $HWNDPARENT ${SW_SHOW}
+    BringToFront
     Banner::destroy
+    StrCpy $BannerUp 0
   ${EndIf}
 FunctionEnd
 
-; **In front, once it exists** — T182b. The banner above held the foreground while the window was
-; being made, and the window then opened behind whatever was under the banner; a person had to find
-; it on the taskbar.
-Function un.onGUIInit
-  BringToFront
+Function un.InstFilesShow
+  !insertmacro FitPage
+  !insertmacro FitLog
 FunctionEnd
 
 ; The choices page — T182, D7. Two boxes, both unticked: keeping is what nobody regrets.
@@ -536,6 +704,7 @@ Section "Uninstall"
     ${EndIf}
     !insertmacro MarqueeOff
     DetailPrint "Nothing was removed."
+    !insertmacro FitLog
     SetErrorLevel 2
     Abort
   ${EndIf}
@@ -551,6 +720,7 @@ Section "Uninstall"
   nsExec::ExecToLog '"$INSTDIR\mix.exe" uninstall --yes$R1'
   Pop $0
   !insertmacro MarqueeOff
+  !insertmacro FitLog
   ${If} $0 != 0
     MessageBox MB_ICONSTOP "MixLab could not finish undoing its changes to this machine, so it is still installed. Run Uninstall again from Installed apps to finish. The details are in the log above." /SD IDOK
     SetErrorLevel 2

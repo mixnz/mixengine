@@ -130,6 +130,9 @@ windows-sys = { workspace = true, features = [
     # could be edited. `setx` would write it too and would truncate it at 1024 characters, which is
     # the whole argument for reaching the API here — see `windows/path.rs`.
     "Win32_System_Registry",
+    # T182b: which program holds a file an uninstall could not move aside, asked of the Restart
+    # Manager exactly as the system's own "file in use" dialog asks it. Modules, not crates.
+    "Win32_System_RestartManager",
     # The other kind of child: a job object with `KILL_ON_JOB_CLOSE`, which is how this system
     # guarantees a supervised process cannot outlive the daemon (roadmap task T13).
     "Win32_System_JobObjects",
