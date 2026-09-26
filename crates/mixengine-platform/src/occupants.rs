@@ -352,6 +352,7 @@ mod tests {
         (root, home)
     }
 
+    #[cfg(windows)]
     fn item_held_by<'a>(found: &'a [HeldItem], pid: u32, name: &str) -> Option<&'a HeldItem> {
         found.iter().find(|item| {
             item.holders.iter().any(|holder| holder.pid == pid)
