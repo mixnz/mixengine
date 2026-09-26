@@ -74,7 +74,12 @@ Design [docs/specs/2026-09-26-t182e-an-uninstall-moves-what-it-can-design.md](..
 19. **What can move is moved.** VS Code open (it watches `bin` on `PATH`) and File Explorer open
     inside `%LOCALAPPDATA%\MixEngine\etc`. Tick the data box: no Retry box appears, the uninstall
     finishes, and neither folder is left.
-20. **What cannot move is named first.** A terminal whose current directory is
-    `%LOCALAPPDATA%\MixEngine\data`. Tick the data box and press Uninstall: before any UAC prompt, a
-    Retry/Cancel box names the terminal's program and pid. Close it and press Retry: the uninstall
-    goes on and finishes.
+20. **What cannot move is named first, on a page of its own.** A terminal whose current directory is
+    `%LOCALAPPDATA%\MixEngine\data`. Tick the data box and click Next: a page lists the terminal's
+    program, pid and folder, before any UAC prompt. Close it and click **Check again**: the list
+    reads *Nothing is in the way now*. Click Uninstall: it goes on and finishes.
+21. **Something opened after the page is still caught.** On that page with the list clear, open the
+    terminal in `data` again, then click Uninstall: a Retry/Cancel box names it before any UAC
+    prompt. Close it and press Retry: the uninstall goes on and finishes.
+22. **Nothing in the way, no page.** With nothing open in MixLab's folders, the choices page's Next
+    goes straight to the progress page.

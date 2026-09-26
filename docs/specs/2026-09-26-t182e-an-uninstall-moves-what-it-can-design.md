@@ -145,9 +145,19 @@ already provides.
 
 ### D6. The uninstaller
 
-`un.Checks` already turns exit `3` into a Retry box with `mix`'s output. Its sentence becomes
-*"Some programs are using MixLab's folders in a way that stops them being removed. Close them, then
-click Retry."* Nothing else in the script changes.
+*Amended during implementation, at the person's request:* what is in the way gets **a page of its
+own**, between the choices and the progress page.
+
+- `mix uninstall --dry-run --blocked` prints only the `Blocked` rows, one program per line —
+  `<what>: <location>`, ASCII, since `nsExec` misreads anything else — and succeeds whether or not
+  it prints anything, like `--relocated`.
+- The page runs it behind a banner, with the choices made. **Nothing listed skips the page**, so the
+  ordinary uninstall goes from the choices straight to the progress page. Otherwise it lists them,
+  asks for them to be closed, and offers **Check again**, which asks once more and rewrites the list.
+  Uninstall stays available either way.
+- `un.Checks` still turns exit `3` into a Retry box, for what appeared between the page and the
+  click. Its sentence becomes *"Some programs are using MixLab's folders in a way that stops them
+  being removed. Close them, then click Retry."*
 
 ## What this does not do
 

@@ -58,6 +58,8 @@ Page directory
 Page instfiles
 UninstPage uninstConfirm "" un.ConfirmShow
 UninstPage custom un.ChoicesPage un.ChoicesLeave
+; What is in the way, on a page of its own before anything changes — T182e, D6. Skipped when nothing is.
+UninstPage custom un.InUsePage
 UninstPage instfiles "" un.InstFilesShow
 
 ; The uninstaller's two choices (T182, D7). "1" keeps. Both default to keeping, which is also what
@@ -73,6 +75,10 @@ Var Locked
 Var Stuck
 ; 1 while un.onInit's banner is still up, for un.ConfirmShow to take down once the window is in front.
 Var BannerUp
+; What `mix uninstall --dry-run --blocked` printed, one program per line; empty when nothing is in the
+; way. And the label on the in-use page that shows it, so Check again can rewrite it.
+Var InUse
+Var InUseList
 
 ; "Is $1 somewhere inside $0?" — leaves 1 in $2 when it is and 0 when it is not.
 ;
@@ -643,6 +649,82 @@ Function un.Flags
   ${EndIf}
   ${If} $KeepRelocated == 1
     StrCpy $R1 "$R1 --keep-relocated"
+  ${EndIf}
+FunctionEnd
+
+; What is in the way of the choices made, into $InUse: one program per line with Windows line
+; endings, and empty when nothing is — T182e, D6. A `mix` that cannot answer leaves it empty too:
+; the checks at the start of the uninstall ask again and say why. $0-$5 are scratch.
+Function un.FindInUse
+  Call un.Flags
+  nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run --blocked$R1'
+  Pop $0
+  Pop $1
+  StrCpy $InUse ""
+  ${If} $0 != 0
+    Return
+  ${EndIf}
+
+  ; `mix` ends its lines with LF alone, which a Windows label draws as one long line.
+  StrCpy $2 ""
+  StrCpy $3 0
+  ${Do}
+    StrCpy $4 $1 1 $3
+    ${If} $4 == ""
+      ${ExitDo}
+    ${EndIf}
+    ${If} $4 == "$\n"
+      StrCpy $2 "$2$\r$\n"
+    ${ElseIf} $4 != "$\r"
+      StrCpy $2 "$2$4"
+    ${EndIf}
+    IntOp $3 $3 + 1
+  ${Loop}
+
+  ; And not a trailing line break, so a listing of nothing is an empty string.
+  ${Do}
+    StrCpy $5 $2 2 -2
+    ${If} $5 != "$\r$\n"
+      ${ExitDo}
+    ${EndIf}
+    StrCpy $2 $2 -2
+  ${Loop}
+  StrCpy $InUse $2
+FunctionEnd
+
+; The page that asks for them to be closed — T182e, D6. **Skipped when nothing is in the way**, which
+; is the ordinary case: the choices lead straight to the progress page. Asked behind a banner, since
+; reading what other programs hold takes a few seconds and the window would otherwise stand still.
+Function un.InUsePage
+  Banner::show /NOUNLOAD "Checking what is in use..."
+  Call un.FindInUse
+  Banner::destroy
+  ${If} $InUse == ""
+    Abort
+  ${EndIf}
+
+  nsDialogs::Create 1018
+  Pop $0
+  ${NSD_CreateLabel} 0 0 100% 30u "These programs are using MixLab's folders in a way that stops them being removed. Close them, then click Check again. When the list is clear, click Uninstall."
+  Pop $0
+  ${NSD_CreateLabel} 12u 34u -12u -56u "$InUse"
+  Pop $InUseList
+  ${NSD_CreateButton} 0 -18u 80u 15u "Check again"
+  Pop $0
+  ${NSD_OnClick} $0 un.InUseCheckAgain
+  nsDialogs::Show
+FunctionEnd
+
+; Check again: ask once more and rewrite the list. Uninstall stays available either way: something
+; still in the way is caught by the checks at the start of the uninstall, with Retry.
+Function un.InUseCheckAgain
+  Pop $0
+  ${NSD_SetText} $InUseList "Checking..."
+  Call un.FindInUse
+  ${If} $InUse == ""
+    ${NSD_SetText} $InUseList "Nothing is in the way now. Click Uninstall to go on."
+  ${Else}
+    ${NSD_SetText} $InUseList "$InUse"
   ${EndIf}
 FunctionEnd
 
