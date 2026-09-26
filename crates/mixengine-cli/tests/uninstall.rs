@@ -229,6 +229,62 @@ async fn a_program_running_from_the_home_blocks_with_exit_code_three() {
     );
 }
 
+/// T182e, D6. On a home nothing is in the way of, the listing the Windows uninstaller's "close
+/// these first" page reads is empty, and the command succeeds.
+#[tokio::test(flavor = "multi_thread")]
+async fn listing_what_is_in_the_way_of_a_plain_home_prints_nothing() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let printed = home.mix(&["uninstall", "--dry-run", "--blocked"]);
+
+    assert!(printed.status.success(), "{}", stderr(&printed));
+    assert_eq!(stdout(&printed).trim(), "", "{}", stdout(&printed));
+}
+
+/// T182e, D6. A program standing in the home is one line of that listing, naming its pid and the
+/// folder it holds, and the listing still succeeds — it is a question, not a refusal.
+#[cfg(windows)]
+#[tokio::test(flavor = "multi_thread")]
+async fn listing_what_is_in_the_way_names_a_program_standing_in_the_home() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let directory = home.path().join("t182e-listed");
+    std::fs::create_dir_all(&directory).expect("a directory in the home");
+    let ping = std::path::PathBuf::from(std::env::var("SystemRoot").expect("SystemRoot"))
+        .join(r"System32\PING.EXE");
+    let mut occupant = std::process::Command::new(ping)
+        .args(["-n", "30", "127.0.0.1"])
+        .current_dir(&directory)
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("start the occupant");
+
+    let printed = home.mix(&["uninstall", "--dry-run", "--blocked"]);
+
+    let _ = occupant.kill();
+    let _ = occupant.wait();
+
+    let said = stdout(&printed);
+    assert!(printed.status.success(), "{}", stderr(&printed));
+    let line = said
+        .lines()
+        .find(|line| line.contains(&format!("(pid {})", occupant.id())))
+        .unwrap_or_else(|| panic!("the occupant is not listed: {said}"));
+    assert!(line.contains("t182e-listed"), "{line}");
+}
+
+/// T182e, D6. `--blocked` without `--dry-run` is refused by the parser: it changes nothing.
+#[test]
+fn listing_what_is_in_the_way_requires_a_dry_run() {
+    let home = Home::new();
+
+    let printed = home.mix(&["uninstall", "--blocked"]);
+
+    assert_eq!(printed.status.code(), Some(2), "{}", stderr(&printed));
+}
+
 /// T182e, D4. A program *standing* in the home — a working directory, which cannot be moved — makes
 /// the dry run exit `3` and name it.
 #[cfg(windows)]

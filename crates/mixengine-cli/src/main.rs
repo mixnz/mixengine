@@ -348,6 +348,14 @@ enum Command {
         #[arg(long, requires = "dry_run")]
         relocated: bool,
 
+        /// With `--dry-run`: print only what is in the way, one program per line — its name, its pid
+        /// and the folder it holds or runs from.
+        ///
+        /// For a program to read — the Windows uninstaller lists them on a page of their own before
+        /// it changes anything (T182e). Empty when nothing is in the way.
+        #[arg(long, requires = "dry_run", conflicts_with = "relocated")]
+        blocked: bool,
+
         /// Answer the confirmation in advance, for a script with nobody at the keyboard.
         #[arg(long, conflicts_with = "dry_run")]
         yes: bool,
@@ -2411,6 +2419,7 @@ async fn run(args: Args) -> Result<ExitCode, Error> {
             keep_home,
             keep_relocated,
             relocated,
+            blocked,
             yes,
             no_wait,
         } => {
@@ -2419,6 +2428,7 @@ async fn run(args: Args) -> Result<ExitCode, Error> {
                 keep_home,
                 keep_relocated,
                 relocated,
+                blocked,
                 yes,
                 no_wait,
             };
@@ -2994,6 +3004,7 @@ async fn uninstall(
         keep_home,
         keep_relocated,
         relocated,
+        blocked,
         yes,
         no_wait,
     } = wanted;
@@ -3039,6 +3050,18 @@ async fn uninstall(
                 && !item.location.contains(mixengine_platform::tombstone::MARK)
             {
                 emit(&format!("{}\n", item.location))?;
+            }
+        }
+
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    // T182e, D6: the listing the uninstaller's "close these first" page reads — one line per program
+    // in the way, and nothing else. A question and not a refusal, so it succeeds either way.
+    if blocked {
+        for item in &planned.items {
+            if matches!(item.outcome, Removal::Blocked { .. }) {
+                emit(&format!("{} — {}\n", item.what, item.location))?;
             }
         }
 
@@ -3280,6 +3303,7 @@ struct UninstallAsk {
     keep_home: bool,
     keep_relocated: bool,
     relocated: bool,
+    blocked: bool,
     yes: bool,
     no_wait: bool,
 }
