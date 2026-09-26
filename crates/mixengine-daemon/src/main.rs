@@ -810,7 +810,10 @@ fn remove_what_the_uninstall_armed(armed: &[PathBuf], lifted: &[PathBuf]) {
     let _ = std::fs::remove_file(&note);
 
     let lines: Vec<String> = match mixengine_platform::tombstone::remove_all_or_nothing(
-        armed, lifted, pid,
+        armed,
+        lifted,
+        pid,
+        mixengine_platform::tombstone::PATIENCE,
     ) {
         Ok(left) => left
             .into_iter()
