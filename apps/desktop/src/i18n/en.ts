@@ -177,6 +177,11 @@ const en = {
     mixengineRefused: "MixEngine refused: {{message}}",
     mixengineStartFailed: "Could not start MixEngine: {{message}}",
     updateDaemonWouldNotStop: "MixEngine did not stop within 30 seconds, so nothing was replaced. Try again in a moment.",
+    updateNoBuild: "This release has no build for this machine.",
+    updateLocked: "Another update is running (process {{pid}}). Try again when it finishes.",
+    updateUnwritable: "MixLab can't write to the folder it's installed in, so it can't update itself here.",
+    updateFailed: "The update didn't install, and nothing was changed. {{message}}",
+    updateDaemonNotBack: "MixLab was updated, but MixEngine didn't start again. Start it from the MixEngine tab. {{cause}}",
     mixengineStorageFailed: "Could not read where MixEngine keeps its files: {{message}}",
     mixengineProtocol: "MixEngine answered something this version does not understand: {{message}}",
     // SSH

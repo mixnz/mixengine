@@ -161,6 +161,11 @@ const vi: SharedDict = {
     mixengineRefused: "MixEngine từ chối: {{message}}",
     mixengineStartFailed: "Không khởi động được MixEngine: {{message}}",
     updateDaemonWouldNotStop: "MixEngine không dừng trong 30 giây nên chưa có gì bị thay. Thử lại sau một lúc.",
+    updateNoBuild: "Bản phát hành này chưa có bản cho máy này.",
+    updateLocked: "Đang có một lần cập nhật khác chạy (tiến trình {{pid}}). Thử lại khi nó xong.",
+    updateUnwritable: "MixLab không ghi được vào thư mục cài đặt nên không tự cập nhật được ở đây.",
+    updateFailed: "Chưa cài được bản cập nhật, chưa có gì bị thay đổi. {{message}}",
+    updateDaemonNotBack: "MixLab đã được cập nhật nhưng MixEngine chưa chạy lại. Khởi động nó từ tab MixEngine. {{cause}}",
     mixengineStorageFailed: "Không đọc được chỗ MixEngine đặt file: {{message}}",
     mixengineProtocol: "MixEngine trả lời một thứ phiên bản này không hiểu: {{message}}",
     // SSH
