@@ -24,7 +24,8 @@ const vi: SharedDict = {
   },
   app: {
     settings: "Cài đặt",
-    settingsSyncing: "Cài đặt (đang đồng bộ)",
+    settingsDownloading: "Cài đặt (đang tải thay đổi về)",
+    settingsUploading: "Cài đặt (đang gửi thay đổi lên)",
     tabs: "Các tab đang mở",
     closeTab: "Đóng tab",
     reloadTab: "Tải lại module",

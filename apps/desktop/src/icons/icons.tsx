@@ -1,4 +1,5 @@
 import { Icon, type IconProps } from "./Icon";
+import styles from "./Icon.module.css";
 
 /* Every icon in the app, drawn on {@link Icon}'s 24×24 grid. Keeping them in one file keeps the
  * set visible as a set: adding one means matching the weight and shape of the others rather
@@ -189,6 +190,40 @@ export function SyncIcon(props: IconProps) {
       <path d="M3.75 12a8.25 8.25 0 0 1 14.3-5.6" />
       <path d="M18.05 3v3.4h-3.4" />
       <path d="M5.95 21v-3.4h3.4" />
+    </Icon>
+  );
+}
+
+interface CloudArrowIconProps extends IconProps {
+  /** The arrow travels, for a transfer under way. Still for anyone who asked for less motion. */
+  moving?: boolean;
+}
+
+/* The cloud both transfer icons share, open at the bottom so the arrow passes through it. */
+const CLOUD = "M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1 0 8";
+
+/** Sync bringing the server's changes down to this machine. */
+export function CloudDownloadIcon({ moving = false, ...props }: CloudArrowIconProps) {
+  return (
+    <Icon {...props}>
+      <path d={CLOUD} />
+      <g className={moving ? styles.fall : undefined}>
+        <path d="M12 11v8" />
+        <path d="M9 16.5l3 3 3-3" />
+      </g>
+    </Icon>
+  );
+}
+
+/** Sync sending this machine's changes up to the server — only ever while it really is. */
+export function CloudUploadIcon({ moving = false, ...props }: CloudArrowIconProps) {
+  return (
+    <Icon {...props}>
+      <path d={CLOUD} />
+      <g className={moving ? styles.rise : undefined}>
+        <path d="M12 20v-8" />
+        <path d="M9 14.5l3-3 3 3" />
+      </g>
     </Icon>
   );
 }

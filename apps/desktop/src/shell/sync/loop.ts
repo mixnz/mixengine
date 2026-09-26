@@ -31,13 +31,18 @@ function isEmpty(changes: SyncChanges): boolean {
 /**
  * One collection, both ways: this machine's changes noticed, every page pulled and written, then
  * those changes pushed.
- * Resolves to how many of this machine's edits newer ones replaced (D4).
+ * Resolves to how many of this machine's edits newer ones replaced (D4). `onSending` is the push's:
+ * see {@link pushCollection}.
  *
  * **Nothing is committed before the module has written it.** A write that throws leaves its page,
  * or a lost conflict's winner, uncommitted — so the next run meets it again, rather than recording
  * an agreement the disk does not hold.
  */
-export async function syncCollection(backend: SyncBackend, collection: SyncableCollection): Promise<number> {
+export async function syncCollection(
+  backend: SyncBackend,
+  collection: SyncableCollection,
+  onSending?: () => void,
+): Promise<number> {
   // Stamped before the first page, so a pull weighs this machine's changes rather than writing
   // over them (D4) — its own earlier push, coming back, included.
   await backend.notice(collection.id, await collection.read());
@@ -47,25 +52,27 @@ export async function syncCollection(backend: SyncBackend, collection: SyncableC
     await backend.commitPull(collection.id, page.token, skipped);
     if (!page.more) break;
   }
-  return pushCollection(backend, collection, true);
+  return pushCollection(backend, collection, true, onSending);
 }
 
 /**
  * This machine's changes alone — what the local check runs, without asking the server for news.
  * A collection this account never pulled is synced in full instead: a push trusts that what this
  * machine never saw the server does not have, which holds only after a pull.
+ * `onSending` is called when something is about to leave for the server, which most pushes never do.
  */
 export async function pushCollection(
   backend: SyncBackend,
   collection: SyncableCollection,
   pulled = false,
+  onSending?: () => void,
 ): Promise<number> {
-  const pushed = await backend.push(collection.id, await collection.read());
+  const pushed = await backend.push(collection.id, await collection.read(), onSending);
   if (pushed.needsPull) {
     // Just pulled and still never pulled: the cursor was not recorded, and going round again would
     // not record it either.
     if (pulled) throw new Error(`sync: ${collection.id} was pulled but has no cursor`);
-    return syncCollection(backend, collection);
+    return syncCollection(backend, collection, onSending);
   }
   if (pushed.token !== null) {
     const skipped = isEmpty(pushed.replaced) ? [] : await collection.write(pushed.replaced);
@@ -87,6 +94,8 @@ export interface LoopOptions {
   onRequest: (listener: () => void) => () => void;
   /** A run began: at least one row is on. */
   onRunStart?: (run: Run) => void;
+  /** That run is about to send this machine's changes — only ever between its start and its end. */
+  onUploading?: () => void;
   /** That run ended, however it ended. */
   onRunEnd?: (result: RunResult) => void;
   /** Edits made here that newer ones replaced — for a notice, never a question (D4). */
@@ -138,12 +147,21 @@ export function startSyncLoop(options: LoopOptions): () => void {
   let stopped = false;
   let lastFull = 0;
   let lastFocus = -Infinity;
+  let runs = 0;
+  let current: number | null = null;
 
   async function runOnce(run: Run): Promise<void> {
     const collections = options.collections();
     // With every row off there is nothing to do and nothing to show.
     if (collections.length === 0) return;
     if (run === "full") lastFull = Date.now();
+    const id = ++runs;
+    current = id;
+    // A channel's message is not ordered against the call it came with: one landing after its run
+    // ended would show an upload nothing is doing, and nothing would ever take it down.
+    const onSending = () => {
+      if (current === id) options.onUploading?.();
+    };
     options.onRunStart?.(run);
     let error: unknown = undefined;
     let finished = false;
@@ -154,8 +172,8 @@ export function startSyncLoop(options: LoopOptions): () => void {
         try {
           const replaced =
             run === "full"
-              ? await syncCollection(options.backend, collection)
-              : await pushCollection(options.backend, collection);
+              ? await syncCollection(options.backend, collection, onSending)
+              : await pushCollection(options.backend, collection, false, onSending);
           if (replaced > 0) options.onReplaced(collection.id, replaced);
         } catch (failure) {
           if (isSignedOut(failure)) return;
@@ -165,6 +183,7 @@ export function startSyncLoop(options: LoopOptions): () => void {
       }
       finished = true;
     } finally {
+      current = null;
       options.onRunEnd?.({ run, error, finished });
     }
   }

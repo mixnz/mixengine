@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- While sync runs, MixLab shows a download icon when it fetches changes and an upload icon only when
+  it sends yours, in place of the spinning one.
+
 ## v0.0.8
 
 ### Added

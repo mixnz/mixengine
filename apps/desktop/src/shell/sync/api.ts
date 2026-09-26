@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { SyncChanges, SyncItem } from "../../core/syncCollection";
 
 /**
@@ -50,7 +50,8 @@ export interface SyncBackend {
   pullPage(collection: string): Promise<PulledPage>;
   /** `skipped`: what the module did not write, which sync must not agree on (T178a, L4). */
   commitPull(collection: string, token: string, skipped: string[]): Promise<void>;
-  push(collection: string, items: SyncItem[]): Promise<PushedChanges>;
+  /** `onSending`: called just before anything leaves for the server — never when nothing changed. */
+  push(collection: string, items: SyncItem[], onSending?: () => void): Promise<PushedChanges>;
   commitPush(collection: string, token: string, skipped: string[]): Promise<void>;
 }
 
@@ -58,7 +59,11 @@ export const tauriSync: SyncBackend = {
   notice: (collection, items) => invoke("sync_notice", { collection, items }),
   pullPage: (collection) => invoke("sync_pull_page", { collection }),
   commitPull: (collection, token, skipped) => invoke("sync_commit_pull", { collection, token, skipped }),
-  push: (collection, items) => invoke("sync_push", { collection, items }),
+  push: (collection, items, onSending) => {
+    const channel = new Channel<null>();
+    if (onSending) channel.onmessage = () => onSending();
+    return invoke("sync_push", { collection, items, onSending: channel });
+  },
   commitPush: (collection, token, skipped) => invoke("sync_commit_push", { collection, token, skipped }),
 };
 

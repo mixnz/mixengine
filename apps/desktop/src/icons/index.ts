@@ -10,6 +10,8 @@ export {
   ChevronRightIcon,
   ChevronUpIcon,
   CloseIcon,
+  CloudDownloadIcon,
+  CloudUploadIcon,
   CopyIcon,
   DashboardIcon,
   DatabaseGenericIcon,

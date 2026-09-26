@@ -4,7 +4,15 @@ import type { AccentColor, ThemeMode } from "../../theme";
 import type { TranslationKey } from "../../../i18n";
 import type { IconProps } from "../../../icons";
 import type { ShortcutGroup } from "../../../core/shortcuts";
-import { DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon, SyncIcon } from "../../../icons";
+import {
+  CloudDownloadIcon,
+  CloudUploadIcon,
+  DownloadIcon,
+  KeyboardIcon,
+  ModulesIcon,
+  PaletteIcon,
+  SyncIcon,
+} from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import { visibleModules } from "../../profiles";
 import { useSyncActivity } from "../../sync/activity";
@@ -52,7 +60,7 @@ function SettingsModal({
   initialSection,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  const { syncing } = useSyncActivity();
+  const { direction: syncDirection } = useSyncActivity();
   const [section, setSection] = useState<SectionId>(initialSection ?? "appearance");
 
   const visible = visibleModules(modules.enabled);
@@ -109,7 +117,15 @@ function SettingsModal({
                     className={id === shown ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
                     onClick={() => setSection(id)}
                   >
-                    <Icon size={15} spinning={id === "sync" && syncing} />
+                    {/* Sync's entry shows which way sync is moving while it moves: the same icon
+                        as the strip's Settings button. */}
+                    {id === "sync" && syncDirection === "up" ? (
+                      <CloudUploadIcon size={15} moving />
+                    ) : id === "sync" && syncDirection === "down" ? (
+                      <CloudDownloadIcon size={15} moving />
+                    ) : (
+                      <Icon size={15} />
+                    )}
                     <span className={styles.navLabel}>{t(labelKey)}</span>
                   </button>
                 ))}

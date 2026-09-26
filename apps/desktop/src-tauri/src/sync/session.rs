@@ -1102,6 +1102,19 @@ impl SyncState {
         collection: &str,
         items: Vec<Item>,
     ) -> Result<PushedChanges, AppError> {
+        self.push_reporting(collection, items, || {}).await
+    }
+
+    /// [`push`](Self::push), calling `on_sending` just before anything leaves for the server — and
+    /// never when nothing changed, which is most pushes. It is what the window's upload icon waits
+    /// for: a push that sends nothing must not look like one that does.
+    pub async fn push_reporting(
+        &self,
+        collection: &str,
+        items: Vec<Item>,
+        on_sending: impl Fn() + Sync,
+    ) -> Result<PushedChanges, AppError> {
+        let on_sending = &on_sending;
         let name = collection.to_owned();
         let items = Arc::new(items);
         let (accepted, replaced, records, agreements, error, needs_pull) = self
@@ -1127,6 +1140,7 @@ impl SyncState {
                     if changes.is_empty() {
                         return Ok((0, Incoming::default(), Vec::new(), Vec::new(), None, false));
                     }
+                    on_sending();
                     let pushed = engine::push(
                         &session.transport,
                         &session.store,

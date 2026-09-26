@@ -35,6 +35,7 @@ export function startSync(): () => void {
     },
     onReplaced: noteReplaced,
     onRunStart: syncActivity.runStarted,
+    onUploading: syncActivity.uploading,
     onRunEnd: syncActivity.runEnded,
     // An `AppError` is a plain object, which `String()` would print as `[object Object]`.
     onError: (collection, error) =>

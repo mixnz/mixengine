@@ -175,7 +175,7 @@ function AccountView({ status, onChanged }: Props) {
             )}
           </div>
           <div className={styles.row}>
-            <Button size="small" busy={activity.syncing ? t("sync.syncing") : undefined} onClick={requestSync}>
+            <Button size="small" busy={activity.direction !== null ? t("sync.syncing") : undefined} onClick={requestSync}>
               {t("sync.syncNow")}
             </Button>
             <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>

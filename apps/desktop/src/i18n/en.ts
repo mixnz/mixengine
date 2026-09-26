@@ -26,7 +26,8 @@ const en = {
   },
   app: {
     settings: "Settings",
-    settingsSyncing: "Settings (syncing)",
+    settingsDownloading: "Settings (downloading changes)",
+    settingsUploading: "Settings (uploading changes)",
     /** The name of the app's own tab bar, for anyone reading the screen rather than looking at it. */
     tabs: "Open tabs",
     closeTab: "Close tab",
