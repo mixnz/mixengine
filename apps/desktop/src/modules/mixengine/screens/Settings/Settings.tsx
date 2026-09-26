@@ -14,10 +14,10 @@ import FrontEndSection from "./FrontEndSection";
 import PathSection from "./PathSection";
 import styles from "./Settings.module.css";
 import SaveResourcesSection from "./SaveResourcesSection";
-import UpdatesSection from "./UpdatesSection";
 
 /**
- * Root directory, TLD quản lý, autostart, updates, doctor, gỡ MixEngine, diagnostics — T4.6–T4.8.
+ * Root directory, TLD quản lý, autostart, doctor, diagnostics — T4.6–T4.8. Cập nhật không nằm
+ * ở đây mà ở Settings → Updates của MixLab (T187, ADR 0056).
  *
  * **Root/TLD không gọi command mới nào** — cả hai đọc từ `daemon.status()`
  * (`home`, `dns?.wildcards`), cuộc gọi Dashboard đã làm mỗi lần `reload()`. Settings tự gọi lại một
@@ -27,13 +27,7 @@ import UpdatesSection from "./UpdatesSection";
  * `ServiceSummary.role` (T97) có từ bindings `v0.0.6`; trên một daemon cũ hơn section đó tự hiện
  * dòng "bản này chưa hỗ trợ" thay vì biến mất.
  */
-export default function Settings({
-  active,
-  onUpdateApplied,
-}: {
-  active: boolean;
-  onUpdateApplied: () => void;
-}) {
+export default function Settings({ active }: { active: boolean }) {
   const [status, setStatus] = useState<DaemonStatus | null>(null);
   const [error, setError] = useState("");
   const { t } = useTranslation();
@@ -73,7 +67,6 @@ export default function Settings({
       <LoginItemSection onError={setError} />
       <SaveResourcesSection onError={setError} />
       <PathSection active={active} onError={setError} />
-      <UpdatesSection active={active} onError={setError} onApplied={onUpdateApplied} />
       <DoctorSection active={active} onError={setError} />
       <DiagnosticsSection onError={setError} />
     </div>

@@ -1,10 +1,8 @@
-//! Starting this window again — roadmap task **T106**.
+//! Starting this window again — roadmap tasks **T106** and **T187**.
 //!
-//! `tauri-plugin-process` did this until MixEngine's updater became the only updater. It left with
-//! `tauri-plugin-updater`, whose feed, key and endpoint belonged to a repository that is about to be
-//! archived; what stayed is the two things it was used for — the ErrorBoundary's *Restart app*, and
-//! coming back on the new version after `update.apply` has replaced this executable underneath the
-//! running process.
+//! Two callers: the ErrorBoundary's *Restart app*, and MixLab's own updater (`crate::updater`),
+//! coming back on the new version after it has replaced this executable underneath the running
+//! process.
 //!
 //! # Three things here are not obvious
 //!
@@ -25,7 +23,7 @@
 //! `forward` for ever. Taken the way `launch::Opening` takes the handoff credential, and for the
 //! same reason.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -38,14 +36,6 @@ use crate::instance;
 ///
 /// Its value is never read: what matters is that it is there, and that the child removes it.
 const ENV: &str = "MIXLAB_RELAUNCH";
-
-/// The name this window answers to in a payload's `provides`.
-///
-/// `cargo` names the executable after `[package].name`, `packaging/common.sh`'s `MIX_WINDOW` is held
-/// to that same string by `crates/mixengine-core/tests/packaging.rs`, and
-/// `mixengine_core::updates::apply::WINDOW` is held to `MIX_WINDOW`. So this is the same string the
-/// daemon reports in `UpdateApplied::replaced`, and it cannot drift from it.
-const NAME: &str = env!("CARGO_PKG_NAME");
 
 /// How long a relaunched copy waits for its predecessor to let go of the endpoint.
 ///
@@ -142,194 +132,4 @@ pub fn restart<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError> {
 #[tauri::command]
 pub fn relaunch_app(app: AppHandle) -> Result<(), AppError> {
     restart(&app)
-}
-
-/// What an applied update means for the window that asked for it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Relaunch {
-    /// This window was replaced and is starting again.
-    Relaunching,
-
-    /// The update did not replace a window here.
-    ///
-    /// **A sentence and not a silence.** It is the state a macOS `.pkg` install is always in: the
-    /// four binaries are in `/usr/local/bin` and `MixLab.app` is in `/Applications`, so the swap
-    /// finds no window beside `mixengined` and keeps it — correctly, by the rule that stops an update
-    /// *adding* a window to a headless server. The daemon is then new and the window is old, and the
-    /// only thing worse than that is it happening without saying so.
-    NotReplaced,
-
-    /// A window was replaced, and it was not this one — a portable archive beside an installed copy,
-    /// both pointed at the same home. This one is untouched, and restarting it would prove nothing.
-    Elsewhere,
-}
-
-/// Whether the window at `root` is the one an update replaced in `directory`.
-///
-/// Pure, so the three answers can be tested without an update, an install or a process.
-///
-/// **Canonicalized on both sides where it can be**, because the daemon's `directory` is the parent of
-/// whatever path `mixengined` resolved its own executable to and this window's is whatever it was
-/// started with: a symlink on one side and not the other would answer [`Relaunch::Elsewhere`] for the
-/// install that was just replaced. A path that will not canonicalize — one that does not exist, which
-/// on this code path it does — is compared as written.
-fn decide(directory: &Path, replaced: &[String], root: &Path) -> Relaunch {
-    if !replaced.iter().any(|name| name == NAME) {
-        return Relaunch::NotReplaced;
-    }
-
-    let Some(file_name) = root.file_name() else {
-        return Relaunch::Elsewhere;
-    };
-
-    let real = |path: PathBuf| std::fs::canonicalize(&path).unwrap_or(path);
-
-    if real(directory.join(file_name)) == real(root.to_path_buf()) {
-        Relaunch::Relaunching
-    } else {
-        Relaunch::Elsewhere
-    }
-}
-
-/// `CFBundleShortVersionString` from an XML `Info.plist`, or `None`.
-///
-/// A string search rather than a plist crate: the bundle's plist is the XML Tauri writes, and one
-/// key is read (T88f, D7).
-fn short_version(plist: &str) -> Option<String> {
-    let after = plist
-        .split("<key>CFBundleShortVersionString</key>")
-        .nth(1)?;
-    let value = after.trim_start().strip_prefix("<string>")?;
-    let end = value.find("</string>")?;
-
-    Some(value[..end].trim().to_owned()).filter(|version| !version.is_empty())
-}
-
-/// Whether the bundle on disk is another version than this running window — T88f, D7.
-///
-/// **An unreadable plist relaunches nothing**: restarting into a bundle nobody could read the
-/// version of would prove nothing, and the window already says the update finished.
-fn bundle_moved_on(running: &str, on_disk: Option<&str>) -> bool {
-    on_disk.is_some_and(|on_disk| on_disk != running)
-}
-
-/// `update.apply` has answered; decide what that means for this window, and act on it.
-///
-/// **Two fields and not `UpdateApplied` itself.** The typed answer is already in the front end, out
-/// of `bindings/`; taking the whole struct here would mean a dependency on `mixengine-proto` for a
-/// shape this function reads two fields of, and ADR 0027's rule 4 is a list to add to on purpose.
-#[tauri::command]
-pub fn relaunch_after_update(
-    app: AppHandle,
-    directory: String,
-    replaced: Vec<String>,
-) -> Result<Relaunch, AppError> {
-    let Some(origin) = origin() else {
-        return Ok(Relaunch::NotReplaced);
-    };
-
-    let mut outcome = decide(Path::new(&directory), &replaced, &origin.root);
-
-    // `update.finish` replaced nothing the swap names: Installer.app did the replacing, of the
-    // whole bundle at the same path (the T88f readings, M3). So the question is whether the bundle
-    // this window was started from now says another version. Off macOS the file is not there and
-    // the answer is unchanged.
-    if outcome == Relaunch::NotReplaced && replaced.is_empty() {
-        let on_disk = std::fs::read_to_string(origin.root.join("Contents").join("Info.plist"))
-            .ok()
-            .and_then(|plist| short_version(&plist));
-
-        if bundle_moved_on(&app.package_info().version.to_string(), on_disk.as_deref()) {
-            outcome = Relaunch::Relaunching;
-        }
-    }
-
-    if outcome == Relaunch::Relaunching {
-        restart(&app)?;
-    }
-
-    Ok(outcome)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A payload that did not carry this window, or an install that did not have one where the
-    /// binaries are — a macOS `.pkg`, whose window is in `/Applications` and whose binaries are in
-    /// `/usr/local/bin`, and every headless install. Nothing to restart, and something to say.
-    #[test]
-    fn a_window_that_was_not_replaced_is_not_restarted() {
-        assert_eq!(
-            decide(
-                Path::new("/usr/local/bin"),
-                &["mix".to_owned(), "mixengined".to_owned()],
-                Path::new("/Applications/MixLab.app"),
-            ),
-            Relaunch::NotReplaced
-        );
-    }
-
-    /// Two installs on one machine pointed at one home. The window that was replaced is not this one.
-    #[test]
-    fn a_window_replaced_somewhere_else_is_not_this_one() {
-        assert_eq!(
-            decide(
-                Path::new("/opt/mixengine"),
-                &[NAME.to_owned()],
-                Path::new("/home/me/mixengine/mixlab"),
-            ),
-            Relaunch::Elsewhere
-        );
-    }
-
-    /// The ordinary case: the window is beside the binaries, the swap replaced it, and this process
-    /// is running the image that was renamed out of the way.
-    #[test]
-    fn the_window_beside_the_binaries_is_the_one_that_was_replaced() {
-        assert_eq!(
-            decide(
-                Path::new("/opt/mixengine"),
-                &["mix".to_owned(), NAME.to_owned()],
-                Path::new("/opt/mixengine/mixlab"),
-            ),
-            Relaunch::Relaunching
-        );
-    }
-
-    /// A `.pkg` update replaces nothing the swap names, so `replaced` is empty; the bundle this
-    /// window started from now says another version (T88f, D7).
-    #[test]
-    fn a_bundle_that_now_reports_another_version_is_relaunched() {
-        assert!(bundle_moved_on("0.0.8", Some("0.0.9")));
-        assert!(!bundle_moved_on("0.0.9", Some("0.0.9")));
-        assert!(
-            !bundle_moved_on("0.0.8", None),
-            "an unreadable plist relaunches nothing"
-        );
-    }
-
-    #[test]
-    fn the_short_version_is_read_from_the_plist() {
-        let plist = r#"<?xml version="1.0"?><plist version="1.0"><dict>
-            <key>CFBundleName</key><string>MixLab</string>
-            <key>CFBundleShortVersionString</key>
-            <string>0.0.9</string>
-            </dict></plist>"#;
-
-        assert_eq!(short_version(plist).as_deref(), Some("0.0.9"));
-        assert_eq!(short_version("<plist/>"), None);
-        assert_eq!(
-            short_version("<key>CFBundleShortVersionString</key><string></string>"),
-            None
-        );
-    }
-
-    /// The name comes from this crate's own manifest, which is what `packaging/common.sh`'s
-    /// `MIX_WINDOW` is held to — so the payload's `provides` key and this cannot disagree.
-    #[test]
-    fn the_name_this_window_answers_to_is_its_package_name() {
-        assert_eq!(NAME, "mixlab");
-    }
 }

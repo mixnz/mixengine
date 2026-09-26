@@ -401,22 +401,19 @@ where
     Ok(seconds)
 }
 
-/// Whether this machine looks for a newer MixEngine — roadmap task **T88**.
+/// `[updates]` — read and ignored since T187.
+///
+/// **Neither key does anything any more** ([ADR 0056](../../../docs/decisions/0056-mixlab-stands-without-mixengine.md)
+/// rule 8): the daemon never reads the update feed unprompted, so there is no check at start and no
+/// clock for them to turn off or to time. They are kept, and still validated, because this struct is
+/// `deny_unknown_fields`: removing them would make every `config.toml` that sets them fail to load.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Updates {
-    /// Whether the daemon reads the update feed at all.
-    ///
-    /// **`false` turns off the check at start, the clock and the event — and leaves
-    /// `mix self-update` working**, because a person who typed the command is asking. That is the
-    /// whole distinction this key draws: it is about what the daemon does unprompted, on a machine
-    /// whose owner has decided nothing should reach the network on its own.
+    /// Whether the daemon read the update feed on its own, before T187. Ignored.
     pub enabled: bool,
 
-    /// How long between checks, in seconds.
-    ///
-    /// A day. It is a key at all for the reason [`Certs::renew_check_seconds`] gives about its own:
-    /// a period no test can move would leave the loop the one part of this task nothing exercises.
+    /// How long there was between those checks, before T187. Ignored.
     #[serde(deserialize_with = "update_check")]
     pub check_seconds: u64,
 }

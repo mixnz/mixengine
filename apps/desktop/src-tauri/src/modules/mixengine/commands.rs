@@ -686,44 +686,6 @@ pub async fn mixengine_path_uninstall() -> Result<Value, AppError> {
     rpc::call("path.uninstall", json!({})).await
 }
 
-/// `update.status` — đọc rẻ, không ra mạng.
-#[tauri::command]
-pub async fn mixengine_update_status() -> Result<Value, AppError> {
-    rpc::call("update.status", json!({})).await
-}
-
-/// `params` đúng hình `UpdateCheck { force }` — ra mạng.
-#[tauri::command]
-pub async fn mixengine_update_check(params: Value) -> Result<Value, AppError> {
-    rpc::call("update.check", params).await
-}
-
-/// `params` đúng hình `UpdateDecide { version, decision }`.
-#[tauri::command]
-pub async fn mixengine_update_decide(params: Value) -> Result<Value, AppError> {
-    rpc::call("update.decide", params).await
-}
-
-/// `params` đúng hình `UpdateApply { version }`. Daemon tự thoát ngay sau khi trả lời — cùng luật
-/// `daemon.shutdown` Pha 1 đã theo (T1.5: không trả lời là một trạng thái đọc được, không phải lỗi).
-#[tauri::command]
-pub async fn mixengine_update_apply(params: Value) -> Result<Value, AppError> {
-    rpc::call("update.apply", params).await
-}
-
-/// `params` is `UpdateHandOver { version }`. The daemon downloads, checks and opens the .pkg, and
-/// keeps running (T88f).
-#[tauri::command]
-pub async fn mixengine_update_hand_over(params: Value) -> Result<Value, AppError> {
-    rpc::call("update.hand_over", params).await
-}
-
-/// `update.finish {}`. The daemon answers and exits, as after `update.apply` (T88f).
-#[tauri::command]
-pub async fn mixengine_update_finish() -> Result<Value, AppError> {
-    rpc::call("update.finish", json!({})).await
-}
-
 /// `service.stop` with no `service` — every declared service, stopped by the daemon in reverse
 /// dependency order (T168, the tray's *Stop all*).
 ///
@@ -736,8 +698,8 @@ pub async fn mixengine_service_stop_all() -> Result<Value, AppError> {
 }
 
 /// `daemon.shutdown` — stops every service in reverse dependency order, answers with what it
-/// stopped, then exits. The connection closing after the answer is the shutdown happening, the same
-/// rule `mixengine_update_apply` follows; the answer is read in full before that close.
+/// stopped, then exits. The connection closing after the answer is the shutdown happening, not a
+/// failure; the answer is read in full before that close.
 #[tauri::command]
 pub async fn mixengine_shutdown() -> Result<Value, AppError> {
     rpc::call("daemon.shutdown", json!({})).await

@@ -160,34 +160,6 @@ export default function MixEngineTab({
     };
   }, []);
 
-  /* `update.apply` tự kết thúc chính daemon đang phục vụ request đó — không có gì ở tầng này khởi
-     động lại nó giùm người dùng (đúng luật "không tự khởi động daemon" ở đầu file). Gỡ MixEngine
-     không còn là một màn của app (T182) mà là việc của bộ gỡ cài đặt và `mix uninstall`. Settings
-     gọi `pollUntilDaemonLeaves` ngay khi update xong (`onUpdateApplied`) để nghe đúng lúc `presence` rời khỏi
-     `"running"`, rồi để gate phía trên tự vẽ màn đúng — "Start" nếu chương trình vẫn còn trên đĩa mà
-     chỉ tiến trình dừng, "Cài lại" kèm danh sách thư mục đã tìm nếu đã gỡ sạch (`notInstalled`),
-     hoặc màn hình bình thường nếu
-     daemon đã tự lên lại trước khi ai kịp thấy gate đó. */
-  const pollTimer = useRef<number | null>(null);
-  const pollUntilDaemonLeaves = useCallback(() => {
-    if (pollTimer.current !== null) return;
-    pollTimer.current = window.setInterval(() => {
-      void api.presence().then((answer) => {
-        setReport(answer);
-        if (answer.presence !== "running" && pollTimer.current !== null) {
-          window.clearInterval(pollTimer.current);
-          pollTimer.current = null;
-        }
-      });
-    }, 1000);
-  }, []);
-  useEffect(
-    () => () => {
-      if (pollTimer.current !== null) window.clearInterval(pollTimer.current);
-    },
-    [],
-  );
-
   /* The tray panel starts and stops the same daemon (T168), so this tab cannot assume it is the
      only one that does. Stopped here and started there: ask again every couple of seconds while
      the gate is up — one `/health` dial that fails at once when nobody is listening. Running here
@@ -362,10 +334,7 @@ export default function MixEngineTab({
         {pane("extensions", (active) => <Extensions active={active} />)}
         {pane("metrics", (active) => <Metrics active={active} />)}
         {pane("settings", (active) => (
-          <Settings
-            active={active}
-            onUpdateApplied={pollUntilDaemonLeaves}
-          />
+          <Settings active={active} />
         ))}
       </div>
     </div>

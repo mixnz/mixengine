@@ -1,8 +1,17 @@
 # Application updates
 
-**Goal**: the daemon checks GitHub Releases, `mix` tells the user a new version exists, and — with
-their consent — `mix self-update` installs it and restarts cleanly, without ever creating a
-privilege-escalation path.
+**Goal**: a person who asks is told whether a new version exists, and — with their consent — it is
+installed and everything restarts cleanly, without ever creating a privilege-escalation path.
+
+**Two updaters read one feed** ([ADR 0056](../decisions/0056-mixlab-stands-without-mixengine.md)).
+An install that carries the window is updated by **MixLab**, from its own Settings → Updates,
+whether or not MixEngine is running ([T187](../specs/2026-09-26-t187-mixlab-updates-itself-design.md)).
+The headless distribution is updated by **`mix self-update`**, which works on a window install too.
+Both take `update.lock` beside the binaries, so they never swap at the same time.
+
+**Nothing updates unasked.** MixEngine never reads the feed on its own: no check at start, no
+clock, since T187. MixLab checks when it starts and once a day while its switch is on, and never
+downloads or installs a release until somebody clicks.
 
 The updater is MixEngine's own code. It was originally specified on Tauri v2's, which left with the
 graphical client ([ADR 0011](../decisions/0011-no-gui-in-this-repository.md)); every rule below
@@ -49,8 +58,8 @@ project keeps refusing. Changing only the *password* — `minisign -C -s ~/.conf
 
 **The whole of this page is now built** — roadmap task **T88**,
 [design](../specs/2026-09-04-t88-self-update-design.md): `core::updates` reads
-the feed and swaps the binaries, `mixengined` checks at start and on a daily clock, and
-`mix self-update` asks and relaunches. The elevated helper's own path, which the sections below
+the feed and swaps the binaries, and `mix self-update` asks and relaunches. (The daemon's check at
+start and its daily clock, also T88, were removed by T187.) The elevated helper's own path, which the sections below
 distinguish at every point it matters, is **T88a**,
 [design](../specs/2026-09-05-t88a-the-helper-update-path-design.md), and is built
 too.
@@ -97,13 +106,13 @@ too.
   copied in, recorded, and `bin/` is refreshed; the staging directory is then removed, and kept only
   when a copy failed. `mix uninstall` removes what was recorded, because an `uninstall.exe` older
   than the file does not know its name.
-- **The window relaunches itself, and the daemon does not do it for it.** After `update.apply`
-  answers, MixLab asks whether the file that was replaced is the file it is running from — the
-  directory the daemon reports, joined with the name of whatever an installer placed — and if it is,
-  it starts that file again and exits. On Windows a running executable can be renamed and not
-  overwritten, which is what the swap already relies on. On Linux the window must have read its own
-  path *before* the swap: `/proc/self/exe` follows the inode, so a window asking afterwards is told
-  its own path is `…/mixlab.old` and would relaunch the version the user had just replaced.
+- **MixLab swaps and relaunches itself** — roadmap task **T187**. On a window install MixLab's own
+  updater (`apps/desktop/src-tauri/src/updater/`) downloads the payload, checks it, runs the staged
+  `mixengined --version`, stops a running daemon through `daemon.shutdown`, swaps, starts the daemon
+  and the services it stopped again, and relaunches the window. With no daemon running it starts
+  none. On Windows a running executable can be renamed and not overwritten, which is what the swap
+  relies on. On Linux the window reads its own path *before* the swap: `/proc/self/exe` follows the
+  inode, so a window asking afterwards is told its own path is `…/mixlab.old`.
 - **A macOS copy the `.pkg` installed is updated by the next `.pkg`, through Installer.app** —
   roadmap task **T88f**, [ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md),
   [design](../specs/2026-09-23-t88f-a-pkg-is-updated-by-its-installer-design.md). The copy is
@@ -132,14 +141,17 @@ too.
   account cannot write, with no installer receipt, means something else put MixEngine there and
   something else updates it. It is a probe and never a path table, and it never elevates — an updater that could ask
   for root would be the vector this page's last section is about.
-- The daemon checks at startup, then at most once every 24 h. Failures are silent — an offline
-  machine must never see an error, and never a slower startup.
+- The daemon never checks on its own (ADR 0056 rule 8). MixLab checks 30 seconds after its window
+  opens and once a day while its automatic switch is on; those failures are silent, because an
+  offline machine must never see an error. `[updates] enabled` and `check_seconds` are read and
+  ignored.
 - `mix self-update --check` forces an immediate check and prints the answer.
 
 ## User flow
 
-1. Update found → carried on the event stream and shown by `mix status`. Nothing interrupts work,
-   and nothing installs itself.
+1. Update found by a check somebody asked for → carried on the event stream and shown by
+   `mix status`, or found by MixLab → a dot on its Settings button and one notice per release.
+   Nothing interrupts work, and nothing installs itself.
 2. `mix self-update` shows version, size and release notes from the feed before asking.
 3. **Explicit consent required.** Updates are never silent, because installing one restarts the
    daemon and therefore every supervised service.
