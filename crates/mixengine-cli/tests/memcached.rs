@@ -24,11 +24,14 @@
 mod harness;
 
 use std::io::{Read as _, Write as _};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use harness::{Home, json};
+// Every port this suite asks for comes from `harness::frontend::free_port`, which hands out
+// numbers no `bind(:0)` on the machine can be given (run 36175716790).
+use harness::frontend::free_port;
 use mixengine_testkit::{FakePackage, MockRegistry, Packed, Packing};
 use serde_json::Value;
 
@@ -56,15 +59,6 @@ fn package() -> PathBuf {
     });
 
     PathBuf::from(directory)
-}
-
-/// A port nothing is listening on, by listening on it and then not.
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .expect("a loopback port")
-        .local_addr()
-        .expect("the port it was given")
-        .port()
 }
 
 /// What the artifact publishes — one program, and the archive is nothing else.

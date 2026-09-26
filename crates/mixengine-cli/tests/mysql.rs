@@ -25,13 +25,19 @@
 
 mod harness;
 
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use harness::{Home, json};
+// Every port this suite asks for comes from `harness::frontend::free_port`, which hands out
+// numbers no `bind(:0)` on the machine can be given (run 36175716790).
+//
+// The usual race is the usual price, and it is worth paying here rather than fixing on 3306: a
+// developer running this suite very likely has a MySQL of their own, and a test that took its
+// port would be a test that stops somebody's work.
+use harness::frontend::free_port;
 use mixengine_testkit::{FakePackage, MockRegistry, Packed, Packing};
 use serde_json::Value;
 
@@ -116,19 +122,6 @@ fn package() -> PathBuf {
     });
 
     PathBuf::from(directory)
-}
-
-/// A port nothing is listening on, by listening on it and then not.
-///
-/// The usual race is the usual price, and it is worth paying here rather than fixing on 3306: a
-/// developer running this suite very likely has a MySQL of their own, and a test that took its
-/// port would be a test that stops somebody's work.
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .expect("a loopback port")
-        .local_addr()
-        .expect("the port it was given")
-        .port()
 }
 
 /// What the artifact publishes, as an index entry says it.

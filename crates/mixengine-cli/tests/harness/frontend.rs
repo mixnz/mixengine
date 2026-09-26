@@ -226,6 +226,20 @@ impl FrontEnd {
 /// port. Twice the longest run measured, so the loop walks out of the block and keeps going.
 const CANDIDATES: usize = 512;
 
+/// Where every number [`free_port`] hands out comes from.
+///
+/// **Below every operating system's ephemeral range**: Linux's is 32768–60999, Windows' and
+/// macOS's 49152–65535, and those are the numbers a `bind(:0)` anywhere on the machine can be given.
+/// Run 36175716790 (`services (ubuntu-latest, all)`) is what handing one out cost: Caddy crash-looped
+/// on `listen tcp 127.0.0.1:40789: bind: address already in use`, because the number `free_port` had
+/// just let go was given to another listener before Caddy bound it. Nothing binds port 0 into this
+/// band, so the only takers left are the ones that ask for a number by name.
+///
+/// And clear of the ones that do, here: `mixengine_core::services::ports`' tests walk 24000–32000,
+/// and the daemon searches 64 numbers up from each recipe's preferred port (3306, 5432, 6379, 9000,
+/// 11211, 27017, 41000) and from the extensions' in these suites (18025, 18081).
+const BAND: std::ops::Range<u16> = 19_000..24_000;
+
 /// What a service wrote to its own log, or an empty string.
 ///
 /// **`daemon.log` is not where a front end says what it did.** Output travels on its own stream and
@@ -241,10 +255,17 @@ pub(crate) fn service_log(home: &Home, service: &str) -> String {
     .unwrap_or_default()
 }
 
-/// A port nothing is listening on, by listening on it and then not.
+/// A port nothing is listening on, from [`BAND`], by listening on it and then not.
 ///
-/// The usual race is the usual price: between the drop and the server's bind, another process on the
-/// machine could take it. Nothing better exists — the alternative is a fixed port, which two runs of
+/// **Not `bind(:0)`, which is what this used to be, and the reason is run 36175716790.** Port 0 is
+/// answered from the ephemeral range, and so is every other `bind(:0)` on the machine: a registry,
+/// another suite's daemon. A number let go of there is one the next of them can be given, and hold
+/// for the rest of the test. Caddy then crash-looped on `listen tcp 127.0.0.1:40789: bind: address
+/// already in use`. Walking a band nothing binds port 0 into leaves only the takers that ask for a
+/// number by name, and [`BAND`] is placed clear of those.
+///
+/// A window stays between the drop and the server's bind, as with any number handed over: a process
+/// that names the same number in it takes it. The alternative is a fixed port, which two runs of
 /// this suite on one machine would fight over.
 ///
 /// **A TCP bind alone is not enough to hand the number to a front end**, which is what this used to
@@ -270,24 +291,44 @@ pub(crate) fn service_log(home: &Home, service: &str) -> String {
 pub(crate) fn free_port() -> u16 {
     static HANDED_OUT: std::sync::Mutex<Vec<u16>> = std::sync::Mutex::new(Vec::new());
 
-    for _ in 0..CANDIDATES {
-        let held = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
-        let port = held.local_addr().expect("the port it was given").port();
+    // A different starting point in each process, so two suites running at once do not walk the band
+    // in step and meet on every number.
+    let width = usize::from(BAND.end - BAND.start);
+    let start = {
+        use std::hash::{BuildHasher as _, Hasher as _};
+        let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+        hasher.write_u32(std::process::id());
+        usize::try_from(hasher.finish() % width as u64).expect("smaller than the band")
+    };
+
+    for step in 0..CANDIDATES {
+        let offset = u16::try_from((start + step) % width).expect("smaller than the band");
+        let port = BAND.start + offset;
 
         let mut handed_out = HANDED_OUT
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if !handed_out.contains(&port) && takes_udp(port) {
+        if handed_out.contains(&port) {
+            continue;
+        }
+
+        // Held while the udp half is tried: letting go first would open a window between the two
+        // checks.
+        let Ok(_held) = TcpListener::bind(("127.0.0.1", port)) else {
+            continue;
+        };
+        if takes_udp(port) {
             handed_out.push(port);
             return port;
         }
     }
 
     panic!(
-        "this machine refused the udp half of, or had already handed out, {CANDIDATES} ports in a \
-         row. On Windows that is \
-         `netsh interface ipv4 show excludedportrange udp` covering most of the ephemeral range — \
-         a reboot releases the dynamic ones."
+        "this machine refused the tcp or udp half of, or had already handed out, {CANDIDATES} ports \
+         in a row in {}..{}. On Windows, `netsh interface ipv4 show excludedportrange udp` and \
+         `… tcp` list the blocks the system has reserved there, and a reboot releases the dynamic \
+         ones.",
+        BAND.start, BAND.end
     );
 }
 
@@ -325,6 +366,26 @@ fn a_port_whose_udp_half_is_taken_is_refused() {
         !takes_udp(port),
         "port {port} has its udp half held and was still offered to a front end"
     );
+}
+
+/// **A port handed out is one no `bind(:0)` on this machine can be given.**
+///
+/// Run 36175716790 is why: a number in Linux's ephemeral range, let go by `free_port`, was taken by
+/// another listener before Caddy bound it. Only the band is asserted, never a number, because which
+/// numbers are free is a fact about the machine.
+#[test]
+fn a_handed_out_port_is_below_every_ephemeral_range() {
+    for _ in 0..8 {
+        let port = free_port();
+
+        assert!(
+            BAND.contains(&port),
+            "free_port handed out {port}, outside {}..{}: a number there can be given to any \
+             listener that binds port 0 between this handing it out and the server binding it",
+            BAND.start,
+            BAND.end
+        );
+    }
 }
 
 // **There was a second test here, and removing it is the point.** It took twenty-five ports from
