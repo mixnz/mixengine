@@ -229,6 +229,34 @@ async fn a_program_running_from_the_home_blocks_with_exit_code_three() {
     );
 }
 
+/// T182e. What the Windows uninstaller reads is ASCII when it asks: the firewall row's label is
+/// spelled with an em dash, which its log showed as `â€”`, and a plain dash here says the whole
+/// plan went through the same door.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plan_read_as_plain_text_is_ascii() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let plain = home.mix_in(
+        home.path(),
+        &[("MIXENGINE_PLAIN_TEXT", "1")],
+        &["uninstall", "--dry-run"],
+    );
+    let usual = home.mix(&["uninstall", "--dry-run"]);
+
+    assert!(
+        stdout(&usual).contains("MixEngine — shared sites"),
+        "{}",
+        stdout(&usual)
+    );
+    assert!(
+        stdout(&plain).contains("MixEngine - shared sites"),
+        "{}",
+        stdout(&plain)
+    );
+    assert!(stdout(&plain).is_ascii(), "{}", stdout(&plain));
+}
+
 /// T182e, D6. On a home nothing is in the way of, the listing the Windows uninstaller's "close
 /// these first" page reads is empty, and the command succeeds.
 #[tokio::test(flavor = "multi_thread")]

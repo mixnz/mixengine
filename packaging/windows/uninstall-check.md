@@ -83,3 +83,7 @@ Design [docs/specs/2026-09-26-t182e-an-uninstall-moves-what-it-can-design.md](..
     prompt. Close it and press Retry: the uninstall goes on and finishes.
 22. **Nothing in the way, no page.** With nothing open in MixLab's folders, the choices page's Next
     goes straight to the progress page.
+23. **An updated install leaves nothing.** On an install that has updated itself once (so
+    `%LOCALAPPDATA%\Programs\MixEngine\update.lock` exists), a complete uninstall leaves no
+    `Programs\MixEngine` folder, and its log ends with *Remove folder*. The log shows the firewall row
+    as `MixEngine - shared sites`, with a plain dash.

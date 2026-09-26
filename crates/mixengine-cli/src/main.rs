@@ -6522,6 +6522,13 @@ fn rendered(json: bool, answer: &impl serde::Serialize, human: impl FnOnce() -> 
 fn emit(rendered: &str) -> Result<(), Error> {
     let mut stdout = std::io::stdout().lock();
 
+    // T182e: a reader that cannot decode UTF-8 — the Windows uninstaller, through `nsExec` — asks
+    // for ASCII look-alikes of the typography this crate's sentences use.
+    let rendered = match std::env::var_os(PLAIN_TEXT) {
+        Some(_) => plain_text(rendered),
+        None => rendered.to_owned(),
+    };
+
     stdout
         .write_all(rendered.as_bytes())
         .and_then(|()| stdout.flush())
@@ -6532,6 +6539,26 @@ fn emit(rendered: &str) -> Result<(), Error> {
                 format!("cannot write to stdout: {source}"),
             )),
         })
+}
+
+/// Set, to anything, by a caller that reads `mix`'s output in a legacy code page — T182e. The
+/// Windows uninstaller does, since `nsExec` decodes what it captures as ANSI.
+const PLAIN_TEXT: &str = "MIXENGINE_PLAIN_TEXT";
+
+/// `text` with the typographic characters `mix` and the daemon write — dashes, curly quotes, the
+/// ellipsis — spelled in ASCII, and everything else, a person's name in a path included, as it was.
+fn plain_text(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '\u{2014}' | '\u{2013}' | '\u{2012}' | '\u{2212}' => plain.push('-'),
+            '\u{2018}' | '\u{2019}' => plain.push('\''),
+            '\u{201C}' | '\u{201D}' => plain.push('"'),
+            '\u{2026}' => plain.push_str("..."),
+            other => plain.push(other),
+        }
+    }
+    plain
 }
 
 /// Put a failure where the person or the program running `mix` will find it.
@@ -6593,6 +6620,23 @@ fn for_seconds(text: &str) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// T182e. The uninstaller reads `mix` through `nsExec`, which decodes in the ANSI code page, so
+    /// under `MIXENGINE_PLAIN_TEXT` the typographic characters become their ASCII look-alikes — the
+    /// firewall row read `MixEngine â€” shared sites` in the uninstaller's log.
+    #[test]
+    fn plain_text_spells_typography_in_ascii() {
+        assert_eq!(
+            plain_text("MixEngine — shared sites, 1–2, ‘a’ “b” …"),
+            "MixEngine - shared sites, 1-2, 'a' \"b\" ..."
+        );
+    }
+
+    /// And leaves everything else alone — a path with a non-English name is still that path.
+    #[test]
+    fn plain_text_leaves_other_characters_alone() {
+        assert_eq!(plain_text(r"C:\Users\Nguyễn\x"), r"C:\Users\Nguyễn\x");
+    }
 
     /// **T151.** Nothing is asked, and nothing refused here, unless MixEngine could install it.
     #[test]

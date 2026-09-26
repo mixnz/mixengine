@@ -345,6 +345,8 @@ Section "MixLab" SecCore
     ${If} $R0 == 0
       Abort "Nothing was changed."
     ${EndIf}
+    ; ASCII into the log, which `nsExec` reads in the ANSI code page (T182e).
+    System::Call 'Kernel32::SetEnvironmentVariable(t "MIXENGINE_PLAIN_TEXT", t "1")'
     nsExec::ExecToLog '"$INSTDIR\mix.exe" daemon stop'
     Pop $0
   ${EndIf}
@@ -488,6 +490,10 @@ FunctionEnd
 Function un.onInit
   StrCpy $KeepHome 1
   StrCpy $KeepRelocated 1
+
+  ; Every `mix` below inherits it: `nsExec` decodes what it captures in the ANSI code page, and a
+  ; UTF-8 dash in the plan reached the log as three other characters (T182e).
+  System::Call 'Kernel32::SetEnvironmentVariable(t "MIXENGINE_PLAIN_TEXT", t "1")'
 
   StrCpy $Relocated ""
   StrCpy $BannerUp 0
@@ -747,6 +753,9 @@ Function un.Checks
   !insertmacro CheckWritable "$INSTDIR\mixengine-trampoline.exe"
   !insertmacro CheckWritable "$INSTDIR\mixengine-elevate.exe"
   !insertmacro CheckWritable "$INSTDIR\mixlab.exe"
+  ; The lock both updaters hold while they swap these files (T187) — held means an update is running,
+  ; and an uninstall in the middle of one would race its swaps.
+  !insertmacro CheckWritable "$INSTDIR\update.lock"
   ${If} $Locked != ""
     StrCpy $R3 "These files are in use. Close the programs using them, then click Retry.$\r$\n$Locked"
     StrCpy $R0 0
@@ -820,6 +829,10 @@ Section "Uninstall"
   !insertmacro RemoveChecked "$INSTDIR\mixengine-trampoline.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixengine-elevate.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixlab.exe"
+  ; Not placed by a `File` above, but by the first update (T187): `mix self-update` and MixLab's
+  ; updater leave it behind for the next one, and a directory still holding it is one `RMDir` below
+  ; cannot remove — which left an install folder with nothing in it but this.
+  !insertmacro RemoveChecked "$INSTDIR\update.lock"
   ${If} $Stuck != ""
     MessageBox MB_ICONSTOP "These files are still in use and were not removed. Close the programs using them, then run Uninstall again from Installed apps.$\r$\n$Stuck" /SD IDOK
     SetErrorLevel 2
