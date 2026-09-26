@@ -2368,7 +2368,6 @@ mod tests {
 
     /// A home with `bin/`, `etc/caddy/` and `data/`, each holding a file, and a relocated `logs/`
     /// beside it holding `daemon.log` — the layout the real uninstalls met.
-    #[cfg(windows)]
     fn a_home_with_relocated_logs() -> (tempfile::TempDir, PathBuf, PathBuf) {
         let root = tempfile::tempdir().expect("tempdir");
         let home = root.path().join("MixEngine");
@@ -2388,7 +2387,6 @@ mod tests {
     /// `Start-Process` starts it hidden and exits, which leaves it with no living parent in this
     /// test's family. `directory` reaches it through the environment rather than inside a quoted
     /// string. Returns its pid, once it can be seen holding `directory`.
-    #[cfg(windows)]
     fn apart_holding(directory: &Path, start_process: &str) -> u32 {
         let started = std::process::Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-Command", start_process])
@@ -2425,7 +2423,6 @@ mod tests {
     }
 
     /// A watch on `directory`, from a program apart from this test.
-    #[cfg(windows)]
     fn apart_watching(directory: &Path) -> u32 {
         apart_holding(
             directory,
@@ -2437,7 +2434,6 @@ mod tests {
     }
 
     /// A program apart from this test whose working directory is `directory` — a terminal in it.
-    #[cfg(windows)]
     fn apart_standing_in(directory: &Path) -> u32 {
         apart_holding(
             directory,
@@ -2446,7 +2442,6 @@ mod tests {
         )
     }
 
-    #[cfg(windows)]
     fn end(pid: u32) {
         let _ = std::process::Command::new("taskkill")
             .args(["/F", "/PID", &pid.to_string()])
@@ -2458,9 +2453,12 @@ mod tests {
     /// T182e, D5, end to end: other programs watching `bin/` and `etc/caddy/` — VS Code and File
     /// Explorer on the machine that found this — do not keep the home. The removal moves both
     /// watched folders out on its own and every armed directory goes, relocated `logs/` included.
-    #[cfg(windows)]
     #[test]
     fn watched_folders_do_not_keep_the_home() {
+        // Windows alone refuses the rename of a folder another program holds.
+        if !cfg!(windows) {
+            return;
+        }
         let (_root, home, logs) = a_home_with_relocated_logs();
         let watchers = [
             apart_watching(&home.join("bin")),
@@ -2481,9 +2479,11 @@ mod tests {
 
     /// T182e, D5, end to end: a program standing in `data/` cannot be moved past, and the removal
     /// puts every directory back — nothing half deleted — and names it in the note `mix` reads.
-    #[cfg(windows)]
     #[test]
     fn a_program_standing_in_the_home_keeps_all_of_it() {
+        if !cfg!(windows) {
+            return;
+        }
         let (_root, home, logs) = a_home_with_relocated_logs();
         let standing = apart_standing_in(&home.join("data"));
 
