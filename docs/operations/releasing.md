@@ -3,17 +3,17 @@
 ```bash
 node scripts/set-version.mjs 0.0.1
 git commit -am "chore(release): v0.0.1"
-bash scripts/ask-ci.sh --watch
+bash scripts/gate.sh
+git push origin master
 git tag v0.0.1
 git push origin v0.0.1
 ```
 
-**Tag only a commit CI has passed.** `ask-ci.sh` runs `scripts/gate.sh`, pushes `master` and waits
-for the whole run. The bump itself can turn a job red that was green the day before: before v0.0.8,
-`helper.lock`'s baseline named an older helper, so the helper check had never compared a fingerprint
-taken on a developer's machine with one taken on CI, and the first release that asked it failed
-`lint` an hour into the tag's run. A red run on `master` costs a fix; a red run on a tag costs the
-tag.
+**Run the gate after the bump, before the tag.** It takes about two minutes and answers what the
+bump itself can break: `set-version.mjs` moves the helper's baseline in `helper.lock`, and
+`helper-lock.sh --check` then compares a fingerprint for the first time since the last release.
+v0.0.8's first tag failed `lint` on exactly that. The tag's own run is the only full CI a release
+needs.
 
 **A tag whose run went red** is taken back before anything is fixed:
 
