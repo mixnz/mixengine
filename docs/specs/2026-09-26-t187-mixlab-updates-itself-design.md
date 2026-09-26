@@ -197,7 +197,8 @@ The file is a contract between two programs that share no code, so it is written
 - **Unix:** `flock(LOCK_EX | LOCK_NB)` on the open file.
 - **Windows:** the file opened for read and write with share mode `FILE_SHARE_READ` only. A second
   opener for writing gets `ERROR_SHARING_VIOLATION`.
-- **Contents:** the holder's pid and program name, one line, so the other one can say who holds it.
+- **Contents:** the holder's pid and a newline, nothing else, so the other one can say who holds it.
+  `mixengine_platform::lock` parses exactly that, and a second field would make it read no pid.
 
 That is what `mixengine_platform::lock` already does, so the CLI's change is its path and nothing
 else. MixLab's `lock.rs` implements the same contract. **A test in the desktop crate takes the lock

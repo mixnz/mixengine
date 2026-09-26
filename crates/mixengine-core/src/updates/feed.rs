@@ -435,4 +435,17 @@ mod tests {
                 .is_none()
         );
     }
+
+    /// The fixture MixLab's own reader is tested against (T187, spec D2). A field this reader
+    /// starts needing that the fixture lacks, or a shape it stops accepting, fails here as well as
+    /// there.
+    #[test]
+    fn the_fixture_mixlab_reads_is_a_feed_this_reader_reads() {
+        let fixture = include_str!("../../../../packaging/testdata/latest.json");
+        let feed: Feed = serde_json::from_str(fixture).expect("the shared fixture parses");
+
+        assert_eq!(feed.schema, SCHEMA);
+        assert_eq!(feed.version, "0.0.10");
+        assert!(feed.artifact(Os::Windows, Arch::X86_64).is_some());
+    }
 }

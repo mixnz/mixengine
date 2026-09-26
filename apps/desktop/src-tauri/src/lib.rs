@@ -9,6 +9,7 @@ mod login_item;
 mod modules;
 mod platform;
 mod relaunch;
+mod updater;
 mod secrets;
 mod ssh;
 /// **Public because `tests/sync_live.rs` drives it** against a real server — the one place the

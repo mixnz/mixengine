@@ -85,3 +85,20 @@ fn testkit_may_only_ever_be_a_dev_dependency() {
         }
     }
 }
+
+/// ADR 0056 rule 3: MixLab's updater is MixLab's code. Nothing under `src/updater/` names a
+/// MixEngine crate, except inside a file's test module, which may check a contract against one.
+#[test]
+fn the_updater_names_no_mixengine_crate() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/updater");
+    for entry in std::fs::read_dir(&root).expect("src/updater exists") {
+        let path = entry.unwrap().path();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let shipped = text.split("#[cfg(test)]").next().unwrap_or_default();
+        assert!(
+            !shipped.contains("mixengine_"),
+            "{} names a mixengine crate outside its tests (ADR 0056 rule 3)",
+            path.display()
+        );
+    }
+}
