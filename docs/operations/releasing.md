@@ -3,10 +3,28 @@
 ```bash
 node scripts/set-version.mjs 0.0.1
 git commit -am "chore(release): v0.0.1"
-git push origin master
+bash scripts/ask-ci.sh --watch
 git tag v0.0.1
 git push origin v0.0.1
 ```
+
+**Tag only a commit CI has passed.** `ask-ci.sh` runs `scripts/gate.sh`, pushes `master` and waits
+for the whole run. The bump itself can turn a job red that was green the day before: before v0.0.8,
+`helper.lock`'s baseline named an older helper, so the helper check had never compared a fingerprint
+taken on a developer's machine with one taken on CI, and the first release that asked it failed
+`lint` an hour into the tag's run. A red run on `master` costs a fix; a red run on a tag costs the
+tag.
+
+**A tag whose run went red** is taken back before anything is fixed:
+
+```bash
+gh run cancel <run-id>
+git push origin :refs/tags/v0.0.1
+git tag -d v0.0.1
+```
+
+and, if `release` got as far as a draft, `gh release delete v0.0.1`. Fix on `master`, ask CI again,
+and tag the new commit. Nobody has downloaded a draft, so the version number is reused.
 
 `set-version.mjs` writes the version in one place, regenerates `cli.md`, records the privileged
 helper this release ships as the baseline in `crates/mixengine-elevate/helper.lock`, and rewrites the release
