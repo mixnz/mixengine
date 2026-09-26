@@ -1172,6 +1172,7 @@ mod tests {
             keep_home,
             keep_relocated,
             grant: false,
+            skip_holders: false,
         }
     }
 

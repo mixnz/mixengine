@@ -3019,6 +3019,9 @@ async fn uninstall(
         // A plan raises nothing whatever this says; sent as it will be sent to the act, so the two
         // calls are visibly one question asked twice.
         grant: false,
+        // T182e: the listing the uninstaller reads while its banner is up names folders and
+        // nothing else, so it does not pay for reading the handle table.
+        skip_holders: relocated,
     };
 
     let planned: UninstallReport = ask(
@@ -3078,6 +3081,8 @@ async fn uninstall(
             // in advance — which is T64's rule met, so the prompt is raised inside the one job the
             // caller is already following.
             grant: true,
+            // And the act always looks: something stuck that appeared since the plan refuses here.
+            skip_holders: false,
             ..query
         }),
     )
