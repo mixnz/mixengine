@@ -62,21 +62,31 @@ pub fn swap_named(
     Ok(swapped)
 }
 
-/// Remove every `*.old` left beside the binaries. Answers how many went; one that cannot be
-/// removed yet (a running window's, on Windows) is left for the next start.
+/// Every name an update of this product swaps: the window and the MixEngine binaries beside it.
+///
+/// What [`discard_old`] may remove, and nothing else: the directory holding the window can hold
+/// other people's files, and a `.old` there is not ours to delete unless we made it.
+pub const PRODUCT_NAMES: &[&str] = &[
+    "mixlab",
+    "mix",
+    "mixengined",
+    "mixengine-shim",
+    "mixengine-trampoline",
+    "mixengine-elevate",
+];
+
+/// Remove the `.old` copies an update of this product left beside the binaries. Answers how many
+/// went; one that cannot be removed yet (a running window's, on Windows) is left for the next start.
 pub fn discard_old(directory: &Path) -> usize {
-    let Ok(entries) = std::fs::read_dir(directory) else {
-        return 0;
-    };
-    entries
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.to_string_lossy().ends_with(OLD_SUFFIX))
-        .filter(|path| {
-            if path.is_dir() {
-                std::fs::remove_dir_all(path).is_ok()
+    PRODUCT_NAMES
+        .iter()
+        .map(|name| with_old_suffix(&directory.join(installed_name(name))))
+        .filter(|old| old.exists())
+        .filter(|old| {
+            if old.is_dir() {
+                std::fs::remove_dir_all(old).is_ok()
             } else {
-                std::fs::remove_file(path).is_ok()
+                std::fs::remove_file(old).is_ok()
             }
         })
         .count()
@@ -244,5 +254,21 @@ mod tests {
         );
         assert_eq!(discard_old(installed.path()), 1);
         assert_eq!(discard_old(installed.path()), 0);
+    }
+
+    /// The directory holding the window can hold other people's files — `/Applications`, a shared
+    /// `bin`. Only what an update of this product renamed is ever removed.
+    #[test]
+    fn an_old_copy_of_something_else_is_left_alone() {
+        let installed = tempfile::tempdir().unwrap();
+        let theirs = installed.path().join(format!("Other.app{OLD_SUFFIX}"));
+        write(&theirs.join("Contents/Info.plist"), "theirs");
+        write(
+            &installed.path().join(format!("notes.txt{OLD_SUFFIX}")),
+            "theirs",
+        );
+
+        assert_eq!(discard_old(installed.path()), 0);
+        assert!(theirs.exists());
     }
 }

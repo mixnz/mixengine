@@ -133,8 +133,10 @@ pub async fn install_swap<R: Runtime>(
 
 /// At every start: remove `.old` files, and finish what a window that died half way left behind.
 pub async fn recover<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(directory) = crate::relaunch::origin().and_then(|o| o.root.parent()) {
-        swap::discard_old(directory);
+    // Only where this updater swaps: elsewhere the window's directory is `/Applications` or
+    // `/usr/bin`, and nothing there is ours to clean.
+    if let super::placement::Placement::Swap { directory } = super::placement::read() {
+        swap::discard_old(&directory);
     }
     let Ok(records) = records(app) else {
         return;
