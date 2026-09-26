@@ -8,6 +8,7 @@
 #![allow(dead_code, reason = "the commands that call this arrive with T187f")]
 
 pub mod feed;
+pub mod lock;
 pub mod placement;
 
 /// Where the feed is published: the stable release-asset redirect, not the rate-limited API.
