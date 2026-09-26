@@ -1,6 +1,7 @@
 //! The account and the loop as the shell asks for them. Each is one call into [`SyncState`]; what
 //! they mean is `session`'s.
 
+use tauri::ipc::Channel;
 use tauri::State;
 
 use super::account::{Account, Device, Freeze};
@@ -116,8 +117,14 @@ pub async fn sync_push(
     state: State<'_, SyncState>,
     collection: String,
     items: Vec<Item>,
+    on_sending: Channel<()>,
 ) -> Result<PushedChanges, AppError> {
-    state.push(&collection, items).await
+    // A window that went away cannot draw the icon; the push goes on regardless.
+    state
+        .push_reporting(&collection, items, || {
+            let _ = on_sending.send(());
+        })
+        .await
 }
 
 #[tauri::command]

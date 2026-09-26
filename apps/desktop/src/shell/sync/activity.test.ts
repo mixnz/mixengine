@@ -1,61 +1,94 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createActivity, SHOW_AFTER_MS, SHOW_AT_LEAST_MS, syncedAgo } from "./activity";
 
-describe("the spinner", () => {
+describe("the direction icon", () => {
   beforeEach(() => void vi.useFakeTimers());
   afterEach(() => void vi.useRealTimers());
 
-  it("never shows for a run shorter than the delay", () => {
+  const ended = (run: "full" | "push") => ({ run, error: undefined, finished: true });
+
+  it("never shows for a pull shorter than the delay", () => {
     const store = createActivity();
     store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS - 1);
-    store.runEnded({ run: "full", error: undefined, finished: true });
+    store.runEnded(ended("full"));
     vi.advanceTimersByTime(SHOW_AT_LEAST_MS);
-    expect(store.get().syncing).toBe(false);
+    expect(store.get().direction).toBeNull();
   });
 
-  it("shows for a long run, and stays at least the minimum once shown", () => {
+  it("shows down for a long full run, and stays at least the minimum once shown", () => {
     const store = createActivity();
     store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS);
-    expect(store.get().syncing).toBe(true);
-    store.runEnded({ run: "full", error: undefined, finished: true });
+    expect(store.get().direction).toBe("down");
+    store.runEnded(ended("full"));
     vi.advanceTimersByTime(SHOW_AT_LEAST_MS - 1);
-    expect(store.get().syncing).toBe(true);
+    expect(store.get().direction).toBe("down");
     vi.advanceTimersByTime(1);
-    expect(store.get().syncing).toBe(false);
+    expect(store.get().direction).toBeNull();
   });
 
-  it("keeps turning through back-to-back runs", () => {
+  it("keeps its icon through back-to-back runs", () => {
     const store = createActivity();
     store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS);
-    store.runEnded({ run: "full", error: undefined, finished: true });
+    store.runEnded(ended("full"));
     store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AT_LEAST_MS * 2);
-    expect(store.get().syncing).toBe(true);
+    expect(store.get().direction).toBe("down");
   });
 
-  it("never shows for a push, however long it takes", () => {
+  it("never shows for a push that sends nothing, however long it takes", () => {
     // A push is the local check alt-tabbing runs: reading every collection, sending nothing when
     // nothing changed. Measured at 240–465ms with eleven rows on, so a delay alone does not hide it.
     const store = createActivity();
     store.runStarted("push");
     vi.advanceTimersByTime(SHOW_AFTER_MS * 10);
-    expect(store.get().syncing).toBe(false);
-    store.runEnded({ run: "push", error: undefined, finished: true });
-    expect(store.get().syncing).toBe(false);
+    expect(store.get().direction).toBeNull();
+    store.runEnded(ended("push"));
+    expect(store.get().direction).toBeNull();
   });
 
-  it("lets a full run's spinner stop on time when a push follows it", () => {
+  it("shows up at once when a push sends, and holds it the minimum", () => {
+    const store = createActivity();
+    store.runStarted("push");
+    store.uploading();
+    expect(store.get().direction).toBe("up");
+    store.runEnded(ended("push"));
+    vi.advanceTimersByTime(SHOW_AT_LEAST_MS - 1);
+    expect(store.get().direction).toBe("up");
+    vi.advanceTimersByTime(1);
+    expect(store.get().direction).toBeNull();
+  });
+
+  it("turns a full run's down into up once it sends, after down has had its minimum", () => {
     const store = createActivity();
     store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS);
-    store.runEnded({ run: "full", error: undefined, finished: true });
-    store.runStarted("push");
-    store.runEnded({ run: "push", error: undefined, finished: true });
+    store.uploading();
+    expect(store.get().direction).toBe("down");
     vi.advanceTimersByTime(SHOW_AT_LEAST_MS);
-    expect(store.get().syncing).toBe(false);
+    expect(store.get().direction).toBe("up");
+  });
+
+  it("goes straight to up when a full run sends before down was due", () => {
+    const store = createActivity();
+    store.runStarted("full");
+    store.uploading();
+    expect(store.get().direction).toBe("up");
+    vi.advanceTimersByTime(SHOW_AFTER_MS);
+    expect(store.get().direction).toBe("up");
+  });
+
+  it("lets a full run's icon stop on time when a push follows it", () => {
+    const store = createActivity();
+    store.runStarted("full");
+    vi.advanceTimersByTime(SHOW_AFTER_MS);
+    store.runEnded(ended("full"));
+    store.runStarted("push");
+    store.runEnded(ended("push"));
+    vi.advanceTimersByTime(SHOW_AT_LEAST_MS);
+    expect(store.get().direction).toBeNull();
   });
 
   it("tells its subscribers, and hands out the same value until something changes", () => {

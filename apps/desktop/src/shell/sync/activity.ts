@@ -1,15 +1,21 @@
 import { useSyncExternalStore } from "react";
 import type { Run, RunResult } from "./loop";
 
-/** A full run shorter than this never shows. A push never shows at all: see `runStarted`. */
+/** A pull shorter than this never shows. A push shows only when it sends: see `uploading`. */
 export const SHOW_AFTER_MS = 200;
 
-/** Once shown, this long at least, so a run does not flash the spinner on and off. */
+/** Once shown, each icon this long at least, so a run does not flash one on and off. */
 export const SHOW_AT_LEAST_MS = 600;
 
+/**
+ * Which way sync is moving, as the window draws it: `down` while a full run asks the server for
+ * news, `up` once this machine's changes are actually being sent. `null` when neither shows.
+ */
+export type SyncDirection = "down" | "up" | null;
+
 export interface SyncActivity {
-  /** Whether the spinner shows. */
-  syncing: boolean;
+  /** Which icon shows, if any. */
+  direction: SyncDirection;
   /** When the last full run finished without a failure, in ms since the epoch. */
   lastSyncedAt: number | null;
   /** The first failure of the last run that had one, until a full run succeeds; `undefined` when none. */
@@ -22,23 +28,46 @@ export interface ActivityStore {
   /** The same object until something changes. */
   get: () => SyncActivity;
   runStarted: (run: Run) => void;
+  /** The run under way is sending this machine's changes. */
+  uploading: () => void;
   runEnded: (result: RunResult) => void;
 }
 
 /**
  * The loop's runs, as the window draws them. In memory, like `replaced.ts`: the Settings dialog
  * that shows most of it is not mounted while sync runs.
+ *
+ * Every change of icon goes through `want`: from nothing it waits `delay`, and away from an icon it
+ * waits until that icon has been up {@link SHOW_AT_LEAST_MS}. A later wish replaces a pending one,
+ * so back-to-back runs keep their icon instead of blinking between them.
  */
 export function createActivity(): ActivityStore {
-  let value: SyncActivity = { syncing: false, lastSyncedAt: null, lastError: undefined };
+  let value: SyncActivity = { direction: null, lastSyncedAt: null, lastError: undefined };
   const listeners = new Set<() => void>();
-  let showTimer: ReturnType<typeof setTimeout> | null = null;
-  let hideTimer: ReturnType<typeof setTimeout> | null = null;
+  let pending: ReturnType<typeof setTimeout> | null = null;
   let shownAt = 0;
 
   function set(next: Partial<SyncActivity>): void {
     value = { ...value, ...next };
     for (const listener of listeners) listener();
+  }
+
+  function want(direction: SyncDirection, delay = 0): void {
+    if (pending !== null) {
+      clearTimeout(pending);
+      pending = null;
+    }
+    if (direction === value.direction) return;
+    // Nothing on screen and nothing to show: a run that ended before its delay was up.
+    if (direction === null && value.direction === null) return;
+    const wait = value.direction === null ? delay : Math.max(0, SHOW_AT_LEAST_MS - (Date.now() - shownAt));
+    const apply = () => {
+      pending = null;
+      shownAt = Date.now();
+      set({ direction });
+    };
+    if (wait === 0) apply();
+    else pending = setTimeout(apply, wait);
   }
 
   return {
@@ -50,41 +79,20 @@ export function createActivity(): ActivityStore {
     runStarted(run) {
       // A push is the local check every focus and every half minute runs. With nothing changed it
       // sends nothing, yet reading eleven collections took 240–465ms: shown, alt-tabbing looked
-      // like syncing. What turns is a full run — launch, a focus a minute on, Sync now.
+      // like syncing. A push shows only once it sends — `uploading`.
       if (run === "push") return;
-      // The next run began while the last one's spinner was still being held: keep turning.
-      if (hideTimer !== null) {
-        clearTimeout(hideTimer);
-        hideTimer = null;
-        return;
-      }
-      if (value.syncing || showTimer !== null) return;
-      showTimer = setTimeout(() => {
-        showTimer = null;
-        shownAt = Date.now();
-        set({ syncing: true });
-      }, SHOW_AFTER_MS);
+      want("down", SHOW_AFTER_MS);
+    },
+    uploading() {
+      // At once, however short: it is the one moment something of this machine's leaves it, and
+      // the person who just saved an edit is looking for it. Up for the rest of the run, since a
+      // run that sent something is the news, not the pages it reads after.
+      want("up");
     },
     runEnded({ run, error, finished }) {
       if (error !== undefined) set({ lastError: error });
       else if (run === "full" && finished) set({ lastSyncedAt: Date.now(), lastError: undefined });
-      // A push never started the spinner, so it has none to stop — and must not restart the hold
-      // of a full run's spinner that is still on screen.
-      if (run === "push") return;
-
-      if (showTimer !== null) {
-        clearTimeout(showTimer);
-        showTimer = null;
-        return;
-      }
-      if (!value.syncing) return;
-      hideTimer = setTimeout(
-        () => {
-          hideTimer = null;
-          set({ syncing: false });
-        },
-        Math.max(0, SHOW_AT_LEAST_MS - (Date.now() - shownAt)),
-      );
+      want(null);
     },
   };
 }

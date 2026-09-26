@@ -429,3 +429,50 @@ describe("the loop", () => {
     expect(loop.ends).toEqual([]);
   });
 });
+
+describe("the upload signal", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+
+  /** A loop whose backend hands each push's `onSending` to `sending` instead of calling it. */
+  function uploadHarness(sending: (onSending: () => void) => void) {
+    const { fake } = backend([]);
+    const heard: string[] = [];
+    const stop = startSyncLoop({
+      backend: {
+        ...fake,
+        push: async (collection, items, onSending) => {
+          if (onSending) sending(onSending);
+          return fake.push(collection, items);
+        },
+      },
+      collections: () => [collection([])],
+      onFocus: () => () => {},
+      onRequest: () => () => {},
+      onReplaced: () => {},
+      onError: () => {},
+      onRunStart: (run) => void heard.push(`start ${run}`),
+      onUploading: () => void heard.push("uploading"),
+      onRunEnd: ({ run }) => void heard.push(`end ${run}`),
+    });
+    return { heard, stop };
+  }
+
+  it("passes a push's sending on, inside its run", async () => {
+    const loop = uploadHarness((onSending) => onSending());
+    await vi.advanceTimersByTimeAsync(0);
+    loop.stop();
+    expect(loop.heard).toEqual(["start full", "uploading", "end full"]);
+  });
+
+  it("drops a sending that arrives after its run ended", async () => {
+    // A channel message is not ordered against its call's answer; one arriving late would put the
+    // upload icon up with no run left to take it down.
+    const late: (() => void)[] = [];
+    const loop = uploadHarness((onSending) => void late.push(onSending));
+    await vi.advanceTimersByTimeAsync(0);
+    for (const onSending of late) onSending();
+    loop.stop();
+    expect(loop.heard).toEqual(["start full", "end full"]);
+  });
+});

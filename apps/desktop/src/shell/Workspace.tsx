@@ -7,7 +7,7 @@ import SettingsModal from "./components/SettingsModal";
 import TabNotice from "./components/TabNotice";
 import ContextMenu from "../components/ContextMenu";
 import { moveTab, Tab, TabAction, tabKeyDown, TabStrip, TabTitle, useTabReorder } from "../components/TabStrip";
-import { PlusIcon, SettingsIcon, SyncIcon } from "../icons";
+import { CloudDownloadIcon, CloudUploadIcon, PlusIcon, SettingsIcon } from "../icons";
 import { isBlockedReload } from "../core/reload";
 import { configureTray } from "../core/window";
 import { logError } from "../core/log";
@@ -52,7 +52,7 @@ function forgetNotice(notices: Record<string, string>, tabId: string): Record<st
 
 function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const { t, lang } = useTranslation();
-  const { syncing } = useSyncActivity();
+  const { direction: syncDirection } = useSyncActivity();
 
   /* Which modules this window has, and everything derived from that. Memoized on the ids flattened
      to a string rather than on the array, because the array is a fresh one whenever the setting is
@@ -371,10 +371,24 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
               setSettingsSection(undefined);
               setSettingsOpen(true);
             }}
-            title={syncing ? t("app.settingsSyncing") : t("app.settings")}
+            title={
+              syncDirection === "up"
+                ? t("app.settingsUploading")
+                : syncDirection === "down"
+                  ? t("app.settingsDownloading")
+                  : t("app.settings")
+            }
             aria-label={t("app.settings")}
           >
-            {syncing ? <SyncIcon size={17} spinning /> : <SettingsIcon size={17} />}
+            {/* Down while sync reads the server, up only while this machine's changes are really
+                being sent: a pull must never look like something leaving. */}
+            {syncDirection === "up" ? (
+              <CloudUploadIcon size={17} moving />
+            ) : syncDirection === "down" ? (
+              <CloudDownloadIcon size={17} moving />
+            ) : (
+              <SettingsIcon size={17} />
+            )}
           </Button>
         }
         /* Not drawn at all once there is nothing left to open — a window holding the one tab its
