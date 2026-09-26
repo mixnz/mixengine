@@ -1,3 +1,4 @@
+import Button from "../../../components/Button";
 import { CloseIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import styles from "./TabNotice.module.css";
@@ -6,6 +7,10 @@ interface Props {
   /** Already translated — this draws a sentence and does not compose one. */
   message: string;
   onDismiss: () => void;
+  /** One thing to do about it, drawn beside the sentence — MixLab's update notice (T187). */
+  action?: { label: string; onClick: () => void };
+  /** What the close button says to a screen reader; the T110 notice's words when absent. */
+  dismissLabel?: string;
 }
 
 /**
@@ -16,15 +21,20 @@ interface Props {
  * `ErrorBanner`'s sixty seconds are there because an error stops being news, and this stays true
  * until someone acts on it.
  */
-function TabNotice({ message, onDismiss }: Props) {
+function TabNotice({ message, onDismiss, action, dismissLabel }: Props) {
   const { t } = useTranslation();
   return (
     <p className={styles.notice} role="status">
-      <span>{message}</span>
+      <span className={styles.message}>{message}</span>
+      {action && (
+        <Button size="small" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
       <button
         type="button"
         className={styles.dismiss}
-        aria-label={t("profiles.turnedOnDismiss")}
+        aria-label={dismissLabel ?? t("profiles.turnedOnDismiss")}
         onClick={onDismiss}
       >
         <CloseIcon />

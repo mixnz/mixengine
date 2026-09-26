@@ -11,6 +11,12 @@
   background-color: rgb(var(--accent-rgb) / 0.1);
   color: var(--text);
   font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.message {
+  flex: 1;
+  min-width: 0;
 }
 
 .dismiss {

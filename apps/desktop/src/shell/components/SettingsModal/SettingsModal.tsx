@@ -21,6 +21,7 @@ import ModulesSection, { type ModuleSettings } from "./ModulesSection";
 import ShortcutsSection from "./ShortcutsSection";
 import SyncSection from "./SyncSection";
 import UpdateSection from "./UpdateSection";
+import type { Updates } from "../../update";
 import styles from "./SettingsModal.module.css";
 import Modal, { ModalBody } from "../../../components/Modal";
 
@@ -36,6 +37,8 @@ interface SettingsModalProps {
   onClose: () => void;
   /** The pane to open on — the closing strip opens Sync. Appearance when absent. */
   initialSection?: string;
+  /** MixLab's updater, owned by `Workspace` so the Settings button can show its dot (T187). */
+  updates: Updates;
 }
 
 /** A module's pane is identified by its module id, so this cannot be a closed union. */
@@ -58,6 +61,7 @@ function SettingsModal({
   modules,
   onClose,
   initialSection,
+  updates,
 }: SettingsModalProps) {
   const { t } = useTranslation();
   const { direction: syncDirection } = useSyncActivity();
@@ -196,7 +200,7 @@ function SettingsModal({
                 aria-labelledby="settings-tab-update"
                 hidden={shown !== "update"}
               >
-                <UpdateSection />
+                <UpdateSection updates={updates} />
               </div>
             </div>
           </ModalBody>

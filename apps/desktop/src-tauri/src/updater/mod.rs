@@ -5,8 +5,7 @@
 //! The one thing this module needs from MixEngine, stopping and starting a daemon that is already
 //! running, it asks `crate::modules::mixengine::for_update` for.
 
-#![allow(dead_code, reason = "the commands that call this arrive with T187f")]
-
+pub mod commands;
 pub mod feed;
 pub mod handover;
 pub mod install;

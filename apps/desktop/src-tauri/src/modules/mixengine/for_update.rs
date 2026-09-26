@@ -9,8 +9,6 @@
 //! No unit tests: every function is a passthrough to the daemon, like `commands.rs`' passthroughs.
 //! They are exercised by the spec's manual paths 2 and 3.
 
-#![allow(dead_code, reason = "called by the updater from T187d")]
-
 use std::path::Path;
 use std::time::{Duration, Instant};
 

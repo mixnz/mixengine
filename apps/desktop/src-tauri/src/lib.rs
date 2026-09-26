@@ -138,6 +138,11 @@ pub fn run() {
                 );
             }
 
+            {
+                use tauri::Manager as _;
+                app.manage(updater::commands::UpdaterState::default());
+            }
+
             launch::start(app.handle(), opening);
 
             // Hidden until its icon is clicked; the icon itself waits for `tray_configure`.

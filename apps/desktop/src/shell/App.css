@@ -458,6 +458,23 @@ button.brand-settings {
   color: var(--text-secondary);
 }
 
+/* A release is waiting — T187. A dot at the button's corner, whole pixels so it sits still at any
+   display scale; the title says which version. */
+button.brand-settings.has-update {
+  position: relative;
+}
+
+button.brand-settings.has-update::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent);
+}
+
 /* One mark on a tab, whatever it says. The layout is all the shell knows about it: what colour it
    takes, and whether it takes one, is the module's own class beside this one. */
 .tab-badge {
