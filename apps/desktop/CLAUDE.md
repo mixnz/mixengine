@@ -1,18 +1,26 @@
 # CLAUDE.md
 
-Short orientation for agents working on MixLab, MixEngine's desktop application. Details live in [docs/](../../docs/README.md) — read the
+Short orientation for agents working on MixLab, the product this repository ships. Details live in [docs/](../../docs/README.md) — read the
 relevant file there before changing anything in that area.
 
 ## What this is
 
 MixLab is a desktop app built with **Tauri 2 + React 19 + TypeScript** (frontend) and **Rust**
 (backend). It is a **shell** — a tab bar, keyboard shortcuts and a Settings dialog — plus one
-**module** per kind of thing a tab can hold. There are three:
+**module** per kind of thing a tab can hold:
 
 - **`db`** — MySQL, PostgreSQL, SQLite, MongoDB, Redis and ClickHouse (read-only) connections,
   optionally through an SSH tunnel, with saved connections remembered.
 - **`rest`** — an HTTP client: saved requests, environments, history, and a response pane.
 - **`terminal`** — a shell on this machine or on a server over SSH, with saved hosts.
+- **`tools`** — small utilities that run in this process.
+- **`mixengine`** — the one module that talks to the MixEngine daemon, and an **optional** one.
+
+**MixLab comes first; MixEngine is an add-on.** Many users never start the daemon, so the shell and
+every module but `mixengine` must work with `mixengined` absent, stopped or never run — and nothing
+outside that module may start it. That includes updates: MixLab has its own updater, in the shell's
+Settings → Updates, not in the MixEngine tab
+([ADR 0056](../../docs/decisions/0056-mixlab-stands-without-mixengine.md)).
 
 The shell knows nothing about any of them. Adding a fourth is a folder under `src/modules/` and
 a line in `src/shell/registry.ts` — see
@@ -32,8 +40,8 @@ a line in `src/shell/registry.ts` — see
 | `npm run icons` | Rebuild `src-tauri/icons/` from the SVGs in `public/`; macOS gets the padded one, and its menu bar the tray template (T168) |
 | `npm run screenshots` | The six promotional images — Dashboard, Sites, Database, REST, Terminal, Tools — from sample data, dark and light, raw and framed, into `screenshots/out/`. `-- --check` renders every scene and writes nothing (CI runs it). See [demo-screenshots.md](../../docs/standards/desktop/demo-screenshots.md) |
 
-Releasing is MixEngine's — [build-and-release.md](../../docs/operations/build-and-release.md);
-this application has no release of its own. The app icon, and why there are two logo files, is
+Releasing is the repository's — [build-and-release.md](../../docs/operations/build-and-release.md):
+one release ships MixLab and the MixEngine binaries together, from one feed. The app icon, and why there are two logo files, is
 [icons.md](../../docs/standards/desktop/app-icon.md).
 
 There is no linter config. `npm run build` is the fastest verification step; TypeScript runs

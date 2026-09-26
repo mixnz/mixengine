@@ -1,7 +1,9 @@
 # 0027. The desktop client lives in this repository, behind the same API
 
 **Status**: Accepted — supersedes [0011](0011-no-gui-in-this-repository.md); its naming paragraph is
-superseded by [0044](0044-mixlab-is-the-product-and-mixengine-is-the-engine.md)
+superseded by [0044](0044-mixlab-is-the-product-and-mixengine-is-the-engine.md); its rule 3 is
+superseded by [0056](0056-mixlab-stands-without-mixengine.md), which gives an install that carries
+the window an updater of MixLab's own
 **Date**: 2026-09-08
 
 ## Context

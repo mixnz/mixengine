@@ -33,7 +33,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0024](0024-a-build-that-is-not-a-release-keeps-its-own-home.md) | A build that is not a release keeps its own home | Accepted |
 | [0025](0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md) | A credential is answered only by a method that exists to answer it | Accepted |
 | [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
-| [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted; naming superseded by 0044 |
+| [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted; naming superseded by 0044, rule 3 by 0056 |
 | [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Superseded by 0053 |
 | [0029](0029-every-install-format-carries-a-helper-to-install-from.md) | Every install format carries a helper to install from | Accepted |
 | [0030](0030-the-project-token-expands-to-a-slug.md) | A blueprint's `{project}` expands to a slug, not to the project's name | Accepted |
@@ -55,6 +55,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0053](0053-the-helper-has-its-own-version-and-follows-the-product.md) | The helper has its own version and follows the product through the daemon | Accepted |
 | [0054](0054-an-install-completes-itself-from-its-own-payload.md) | An install completes itself from its own payload; an update still adds nothing | Accepted |
 | [0055](0055-the-daemons-credentials-are-one-keychain-item-per-home-on-macos.md) | The daemon's credentials are one Keychain item per home on macOS | Accepted |
+| [0056](0056-mixlab-stands-without-mixengine.md) | MixLab stands without MixEngine, and updates itself; MixEngine never updates unasked | Accepted |
 
 ### Desktop (recorded in MixDB)
 
