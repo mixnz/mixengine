@@ -775,9 +775,7 @@ async fn run() -> anyhow::Result<()> {
         // armed; a failure here is left for the rename to report.
         let _ = std::env::set_current_dir(std::env::temp_dir());
 
-        // `bin/` goes out on its own first: it is on `PATH`, and an editor watching it for commands
-        // would otherwise keep the whole home (T182b, measured with VS Code).
-        remove_what_the_uninstall_armed(armed, &[home.paths.bin().to_path_buf()]);
+        remove_what_the_uninstall_armed(armed, home.paths.bin());
     }
 
     served.map(|_| ())
@@ -800,21 +798,39 @@ async fn run() -> anyhow::Result<()> {
 /// A path that is already gone is not a failure: on a home with no relocation the root removes
 /// everything under it, and a `[paths]` entry pointing inside the root would be removed with it.
 ///
-/// `lifted` go out of the directory holding them first, for a program watching one of them — see
+/// `bin/` goes out on its own first — it is on `PATH`, and an editor watching it would otherwise keep
+/// the whole home (T182b, measured with VS Code) — and on a refusal, whatever else another program
+/// holds that can be moved goes out on its own too (T182e, D5). See
 /// [`remove_all_or_nothing`](mixengine_platform::tombstone::remove_all_or_nothing).
-fn remove_what_the_uninstall_armed(armed: &[PathBuf], lifted: &[PathBuf]) {
+fn remove_what_the_uninstall_armed(armed: &[PathBuf], bin: &Path) {
+    use mixengine_platform::tombstone::{PATIENCE, QUICK, remove_all_or_nothing};
+
     let pid = std::process::id();
     let note = mixengine_platform::tombstone::note_for(pid);
 
     // A note left by an earlier process that had this pid would be read as this one's.
     let _ = std::fs::remove_file(&note);
 
-    let lines: Vec<String> = match mixengine_platform::tombstone::remove_all_or_nothing(
-        armed,
-        lifted,
-        pid,
-        mixengine_platform::tombstone::PATIENCE,
-    ) {
+    // **Once as before, with `bin/` lifted**, and on a machine nothing else holds that is the whole
+    // of it — no scan is paid for. **On a refusal, look** (T182e, D5): everything was put back, so
+    // what other programs hold is read, whatever can be moved is lifted out too, and the renames go
+    // again with the full patience. What cannot be moved is named below.
+    let mut lifted = vec![bin.to_path_buf()];
+    let mut stuck: Vec<mixengine_platform::occupants::HeldItem> = Vec::new();
+
+    let outcome = match remove_all_or_nothing(armed, &lifted, pid, QUICK) {
+        Err(_) => {
+            let held = mixengine_platform::occupants::held_under(armed, Some(pid));
+            let (movable, unmovable): (Vec<_>, Vec<_>) =
+                held.into_iter().partition(|item| item.movable);
+            lifted.extend(movable.into_iter().map(|item| item.path));
+            stuck = unmovable;
+            remove_all_or_nothing(armed, &lifted, pid, PATIENCE)
+        }
+        done => done,
+    };
+
+    let lines: Vec<String> = match outcome {
         Ok(left) => left
             .into_iter()
             .map(|leftover| {
@@ -826,26 +842,36 @@ fn remove_what_the_uninstall_armed(armed: &[PathBuf], lifted: &[PathBuf]) {
             })
             .collect(),
         // **What refused, and who, before where** (T182b): an uninstaller's log cuts a long line
-        // off, and the path is the part a person can most easily do without. What is left once
-        // the rename has been retried is something that does not let go by itself — a window or
-        // a terminal open inside the home, most often — so that is what the line tells them to
-        // close.
+        // off, and the path is the part a person can most easily do without. The handle table's
+        // answer comes first, since it names the program and says it cannot be moved (T182e);
+        // `first_held`'s is what is left when the table could not see the holder.
         Err(refused) => {
             let seconds = refused.tried_for.as_secs();
-            vec![match &refused.held {
-                Some(held) if !held.by.is_empty() => format!(
+            let named = stuck.iter().find(|item| !item.holders.is_empty());
+            vec![match (named, &refused.held) {
+                (Some(item), _) => format!(
+                    "mixengined: nothing was removed, {} holds {} open, so it cannot be moved or \
+                     deleted (tried for {seconds} s). close it, then run the uninstall again",
+                    item.holders
+                        .iter()
+                        .map(|holder| format!("{} ({})", holder.name, holder.pid))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    item.path.display()
+                ),
+                (None, Some(held)) if !held.by.is_empty() => format!(
                     "mixengined: nothing was removed, {} holds {} open (tried for {seconds} s). \
                      close it, then run the uninstall again",
                     held.by.join(", "),
                     held.path.display()
                 ),
-                Some(held) => format!(
+                (None, Some(held)) => format!(
                     "mixengined: nothing was removed, another program has {} open, such as File \
                      Explorer or a terminal (tried for {seconds} s). close it, then run the \
                      uninstall again",
                     held.path.display()
                 ),
-                None => format!(
+                (None, None) => format!(
                     "mixengined: nothing was removed, {} could not be moved aside: {} (tried for \
                      {seconds} s). close any program using it, then run the uninstall again",
                     refused.path.display(),
