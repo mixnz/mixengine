@@ -671,13 +671,14 @@ Function un.Checks
     Return
   ${EndIf}
 
-  ; The plan, with the choices made. Exit 3 is a program running from a folder that would go.
+  ; The plan, with the choices made. Exit 3 is a program running from a folder that would go, or
+  ; holding something in one that cannot be moved (T182e).
   Call un.Flags
   nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run$R1'
   Pop $0
   Pop $1
   ${If} $0 == 3
-    StrCpy $R3 "Some programs are running from MixLab's folders. Close them, then click Retry.$\r$\n$\r$\n$1"
+    StrCpy $R3 "Some programs are using MixLab's folders in a way that stops them being removed. Close them, then click Retry.$\r$\n$\r$\n$1"
     StrCpy $R0 0
     Return
   ${ElseIf} $0 != 0

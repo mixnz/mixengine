@@ -137,7 +137,8 @@ This widens it:
 
 A lifted item's tombstone is `<directory>.removing-<pid>-<n>-<name>` beside the directory it came
 from, `<n>` its order, so two lifted `logs` cannot collide and `tombstones_beside` finds every one of
-them with the directory's own; `bin/`'s stays `<home>.removing-<pid>-bin`. Deleting a moved item
+them with the directory's own; `bin/` is numbered like the rest (it was `<home>.removing-<pid>-bin`
+in d880937d, which no release shipped). Deleting a moved item
 succeeds while the other program still holds it — it shared delete, which is what made it movable —
 and a tombstone that cannot be deleted is found and removed by the next uninstall, as T182's D6
 already provides.
