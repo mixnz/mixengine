@@ -543,7 +543,7 @@ impl Api {
                 }
             }
 
-            PlanAction::SetPhpExtension { runtime, name } => {
+            PlanAction::SetPhpExtension { name, .. } => {
                 // **Kept by a rollback, and named** (D4): an extension choice belongs to an
                 // installed runtime, so it reaches every project on this machine — and turning it
                 // back off to tidy up would change somebody else's PHP.
@@ -551,31 +551,60 @@ impl Api {
                     .ledger
                     .keeping(Kept::Extension { name: name.clone() });
 
-                let turned = self
-                    .php_extensions
-                    .set(&ExtensionChoice {
-                        runtime: RuntimeTarget {
-                            kind: RuntimeKind::Php,
-                            version: runtime.clone(),
-                        },
-                        name: name.clone(),
-                        enabled: true,
-                    })
-                    .await;
+                // **Which PHP is resolved now, not read from the plan.** On a machine that had no
+                // PHP the plan could not name one — the runtime step above has just installed it —
+                // and the question is the one every `php` in this directory will ask: the
+                // project's pin, or the default where it pins none.
+                let resolved = mixengine_core::resolve::runtime(
+                    &self.store,
+                    &mixengine_core::resolve::Question {
+                        kind: RuntimeKind::Php,
+                        cwd: Some(&context.root),
+                        explicit: None,
+                    },
+                )
+                .await;
+
+                let turned = match resolved {
+                    Ok(php) => {
+                        let version = php.runtime.version;
+
+                        self.php_extensions
+                            .set(&ExtensionChoice {
+                                runtime: RuntimeTarget {
+                                    kind: RuntimeKind::Php,
+                                    version: version.clone(),
+                                },
+                                name: name.clone(),
+                                enabled: true,
+                            })
+                            .await
+                            .map(|_| ())
+                            .map_err(|error| {
+                                format!(
+                                    "{}. `mix runtime ext enable {name} --php {}` tries again",
+                                    error.message,
+                                    version.as_str()
+                                )
+                            })
+                    }
+
+                    Err(error) => Err(format!(
+                        "this project has no PHP to run it ({}). `mix runtime ext enable {name}` \
+                         tries again once one is installed",
+                        error.to_wire().message
+                    )),
+                };
 
                 // **The certificate's rule, and for its reason**: a project without `xdebug` is a
                 // project somebody can work in, and taking their site away over an extension the
                 // index does not offer would be the expensive direction to be wrong in. The line
                 // says which one, so it can be turned on by hand.
                 match turned {
-                    Ok(_) => Ok(StepResult::Done),
+                    Ok(()) => Ok(StepResult::Done),
 
-                    Err(error) => Ok(StepResult::NotRun {
-                        why: format!(
-                            "the PHP extension {name} was not turned on: {} — `mix runtime \
-                             set-extension {name}` tries again",
-                            error.message
-                        ),
+                    Err(reason) => Ok(StepResult::NotRun {
+                        why: format!("the PHP extension {name} was not turned on: {reason}"),
                     }),
                 }
             }

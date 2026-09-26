@@ -723,6 +723,7 @@ export default {
           add_domain: "Add domain {{domain}}",
           issue_certificate: "Issue a certificate covering {{domains}}",
           set_php_extension: "Set PHP extension {{name}} on {{runtime}}",
+          set_php_extension_pending: "Set PHP extension {{name}} on the PHP installed above",
           run_scaffold: "Run: {{command}}",
         },
       },

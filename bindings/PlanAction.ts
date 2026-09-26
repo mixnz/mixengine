@@ -130,9 +130,15 @@ primary: boolean, } | { "action": "issue_certificate",
  */
 domains: Array<string>, } | { "action": "set_php_extension", 
 /**
- * Which installed PHP.
+ * Which installed PHP the project would run when this plan was made: its pin, or the
+ * default where it pins none.
+ *
+ * [`None`] when no PHP here answers that yet — the plan's own runtime step installs it, and
+ * the apply resolves which one it is after that step has run. The apply resolves it in
+ * every case rather than trusting this field, so a plan made before an install is never
+ * carried out against a PHP that is not there.
  */
-runtime: PackageVersion, 
+runtime?: PackageVersion | null, 
 /**
  * The extension's name, as the index spells it.
  */

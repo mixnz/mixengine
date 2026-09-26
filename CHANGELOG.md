@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+- A blueprint that installs PHP now turns on its PHP extensions, such as `redis` for Laravel, and
+  turns them on for the PHP version the project uses, not the newest one installed.
+
 ## v0.0.9
 
 ### Added

@@ -538,8 +538,15 @@ pub enum PlanAction {
     /// There is no "off" direction (D2): a blueprint says what a project needs *loaded*, and
     /// disabling something for everybody else on the machine is harm it was never asked to do.
     SetPhpExtension {
-        /// Which installed PHP.
-        runtime: PackageVersion,
+        /// Which installed PHP the project would run when this plan was made: its pin, or the
+        /// default where it pins none.
+        ///
+        /// [`None`] when no PHP here answers that yet — the plan's own runtime step installs it, and
+        /// the apply resolves which one it is after that step has run. The apply resolves it in
+        /// every case rather than trusting this field, so a plan made before an install is never
+        /// carried out against a PHP that is not there.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        runtime: Option<PackageVersion>,
 
         /// The extension's name, as the index spells it.
         name: String,

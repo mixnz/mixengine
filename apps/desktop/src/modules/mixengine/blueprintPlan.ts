@@ -142,7 +142,9 @@ export function describePlanAction(
     case "issue_certificate":
       return t(`${base}.issue_certificate`, { domains: action.domains.join(", ") });
     case "set_php_extension":
-      return t(`${base}.set_php_extension`, { name: action.name, runtime: action.runtime });
+      return action.runtime
+        ? t(`${base}.set_php_extension`, { name: action.name, runtime: action.runtime })
+        : t(`${base}.set_php_extension_pending`, { name: action.name });
     case "run_scaffold":
       return t(`${base}.run_scaffold`, { command: action.command });
   }

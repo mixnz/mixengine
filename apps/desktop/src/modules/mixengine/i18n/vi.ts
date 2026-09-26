@@ -712,6 +712,7 @@ const vi: typeof en = {
           add_domain: "Thêm domain {{domain}}",
           issue_certificate: "Cấp chứng chỉ phủ {{domains}}",
           set_php_extension: "Bật PHP extension {{name}} trên {{runtime}}",
+          set_php_extension_pending: "Bật PHP extension {{name}} trên bản PHP vừa cài ở trên",
           run_scaffold: "Chạy: {{command}}",
         },
       },

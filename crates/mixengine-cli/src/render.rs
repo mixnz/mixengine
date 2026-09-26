@@ -3676,10 +3676,16 @@ fn action_said(action: &PlanAction) -> String {
         // **The line says how far this reaches.** Extension choices belong to an installed runtime,
         // so this changes the PHP every project on this machine runs — which belongs here, at the
         // moment somebody is deciding, rather than in documentation.
-        PlanAction::SetPhpExtension { runtime, name } => format!(
-            "php extension {name} — changes PHP {} for every project here",
-            runtime.as_str()
-        ),
+        PlanAction::SetPhpExtension { runtime, name } => match runtime {
+            Some(runtime) => format!(
+                "php extension {name} — changes PHP {} for every project here",
+                runtime.as_str()
+            ),
+            // Nothing installed answers yet: the runtime step installs the PHP this lands on.
+            None => format!(
+                "php extension {name} on the PHP this installs, for every project that uses it"
+            ),
+        },
         PlanAction::RunScaffold { command } => format!("run `{command}`"),
         _ => "something this build cannot describe".to_owned(),
     }
@@ -4430,7 +4436,7 @@ mod tests {
                 },
                 PlanStep {
                     action: PlanAction::SetPhpExtension {
-                        runtime: PackageVersion::parse("8.2.23").expect("a version"),
+                        runtime: Some(PackageVersion::parse("8.2.23").expect("a version")),
                         name: "xdebug".to_owned(),
                     },
                     disposition: Disposition::Create,

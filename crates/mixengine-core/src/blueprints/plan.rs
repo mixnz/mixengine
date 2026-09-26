@@ -163,6 +163,9 @@ pub async fn plan(
         runtimes.push(step);
     }
 
+    // What the project will pin PHP to, answers included: an extension belongs on that PHP.
+    let php_pin = pins.get(&RuntimeKind::Php).cloned();
+
     let (registered, mine) = register(store, project, root, pins).await?;
     steps.push(registered);
     steps.extend(runtimes);
@@ -291,7 +294,7 @@ pub async fn plan(
     }
 
     if let Some(php) = &manifest.php {
-        let installed = newest(store, RuntimeKind::Php).await?;
+        let installed = php_of(store, php_pin.as_ref()).await?;
 
         for name in &php.extensions {
             steps.push(extension(store, installed.as_ref(), name).await?);
@@ -773,10 +776,11 @@ async fn extension(
     name: &str,
 ) -> Result<PlanStep> {
     let Some(version) = installed else {
-        // Nothing to enable it on yet; the runtime step above already says the PHP is coming.
+        // Nothing to enable it on yet; the runtime step above already says the PHP is coming, and
+        // the apply resolves which one it is once that step has run.
         return Ok(PlanStep {
             action: PlanAction::SetPhpExtension {
-                runtime: PackageVersion::parse("0.0.0").expect("a placeholder version"),
+                runtime: None,
                 name: name.to_owned(),
             },
             disposition: Disposition::Create,
@@ -785,7 +789,7 @@ async fn extension(
     };
 
     let action = PlanAction::SetPhpExtension {
-        runtime: version.clone(),
+        runtime: Some(version.clone()),
         name: name.to_owned(),
     };
 
@@ -801,13 +805,23 @@ async fn extension(
     })
 }
 
-/// The newest installed version of a language, where there is one.
-async fn newest(store: &Store, kind: RuntimeKind) -> Result<Option<PackageVersion>> {
-    Ok(runtimes::records(store, Some(kind))
-        .await?
-        .into_iter()
-        .max_by(|left, right| left.version.cmp_precedence(&right.version))
-        .map(|record| record.version))
+/// The installed PHP the project will run once it is registered, where one answers already.
+///
+/// **The same answer [`crate::resolve::runtime`] gives the registered project**: the newest
+/// installed version its pin matches, or the default where it pins none. The newest PHP on the
+/// machine was the answer here before, and an extension turned on for 8.4 does nothing for a
+/// project that runs 8.2.
+async fn php_of(store: &Store, pin: Option<&VersionConstraint>) -> Result<Option<PackageVersion>> {
+    let installed = runtimes::records(store, Some(RuntimeKind::Php)).await?;
+
+    Ok(match pin {
+        Some(pin) => installed
+            .into_iter()
+            .filter(|record| pin.matches(&record.version))
+            .max_by(|left, right| left.version.cmp_precedence(&right.version)),
+        None => installed.into_iter().find(|record| record.default),
+    }
+    .map(|record| record.version))
 }
 
 /// `{project}` becomes the project's **handle** — its name as [`crate::domains::slug`] makes it.
@@ -1077,6 +1091,23 @@ mod tests {
         .expect("a runtime install");
     }
 
+    /// One more PHP beside [`an_installed_php`]'s, under its own row.
+    async fn another_installed_php(store: &Store, id: i64, version: &str) {
+        sqlx::query(
+            r#"INSERT INTO runtime_installs
+                   (id, kind, version, channel, install_path, installed_at, size_bytes, source_url,
+                    sha256, extension_choices_json, extensions_json)
+               VALUES (?1, 'php', ?2, 'stable', '/runtimes/php-other', '2026-09-01T00:00:00Z', 1,
+                       'https://example.invalid/php', 'ab', '{}',
+                       '{"shared":["xdebug"],"enabled":[],"compiled_in":[]}')"#,
+        )
+        .bind(id)
+        .bind(version)
+        .execute(store.pool())
+        .await
+        .expect("another runtime install");
+    }
+
     async fn an_installed_mariadb(store: &Store, version: &str) {
         sqlx::query(
             "INSERT INTO packages (id, name, version, install_path, installed_at, source_url, sha256)
@@ -1340,6 +1371,63 @@ mod tests {
             panic!("a database step");
         };
         assert_eq!((database.as_str(), user.as_str()), ("shop", "shop"));
+    }
+
+    /// The PHP an extension step names, from a plan of [`a_manifest`] against this home.
+    async fn the_extensions_php(store: &Store, root: &Path) -> Option<PackageVersion> {
+        let planned = plan(
+            store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root,
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let PlanAction::SetPhpExtension { runtime, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::SetPhpExtension { .. })
+        })
+        .action
+        else {
+            panic!("an extension step");
+        };
+
+        runtime.clone()
+    }
+
+    /// **A home with no PHP names no PHP.** The runtime step above installs it, so which one it is
+    /// is known only once that step has run — and the apply resolves it then. A placeholder version
+    /// here was carried into the apply verbatim, and every Laravel on a fresh machine reported
+    /// `no such runtime: php 0.0.0`.
+    #[tokio::test]
+    async fn an_extension_on_a_home_without_php_names_no_version() {
+        let (temp, store) = home().await;
+
+        assert_eq!(
+            the_extensions_php(&store, &temp.path().join("shop")).await,
+            None
+        );
+    }
+
+    /// **The PHP the project pins, not the newest one here.** An extension turned on for 8.4
+    /// is no use to a project that runs 8.2.
+    #[tokio::test]
+    async fn an_extension_goes_on_the_php_the_project_pins_rather_than_the_newest() {
+        let (temp, store) = home().await;
+        an_installed_php(&store, "8.2.23", "{}").await;
+        another_installed_php(&store, 2, "8.4.1").await;
+
+        assert_eq!(
+            the_extensions_php(&store, &temp.path().join("shop")).await,
+            Some(PackageVersion::parse("8.2.23").expect("a version"))
+        );
     }
 
     /// A different patch release is a question for a person, not a decision for the daemon.
