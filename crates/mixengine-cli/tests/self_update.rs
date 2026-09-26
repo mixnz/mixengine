@@ -533,3 +533,33 @@ async fn a_payload_that_is_not_what_the_feed_named_is_refused_and_nothing_is_rep
 
     let _ = installed.mix(&home, &["daemon", "stop"]);
 }
+
+/// **ADR 0056 rule 8: MixEngine never reads the feed unprompted.** A daemon started against a feed
+/// offering a release has, a moment later, still not heard of it: `mix status` shows no update
+/// line, because nothing asked. Before T187 the check at start put `99.0.0` there.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_daemon_that_nobody_asked_does_not_read_the_feed() {
+    let installed = Installed::here();
+    let packed = payload(&installed);
+
+    let registry = MockRegistry::start(&serde_json::json!({"schema": 1})).await;
+    let url = registry.publish_asset(&packed.path(), packed.bytes.clone());
+    registry.publish(&feed(&url, &packed));
+
+    let installed = installed.reading(&registry.url(), registry.public_key());
+    let home = Home::new();
+    let _daemon = installed.start_daemon(&home);
+
+    // Longer than the check at start ever took against an in-process server.
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    let status = installed.mix(&home, &["status"]);
+    assert!(status.status.success(), "{}", stdout(&status));
+    assert!(
+        !stdout(&status).contains(OFFERED),
+        "the daemon read the feed without being asked:\n{}",
+        stdout(&status)
+    );
+
+    let _ = installed.mix(&home, &["daemon", "stop"]);
+}

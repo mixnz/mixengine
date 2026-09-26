@@ -1,15 +1,9 @@
 /**
- * What version this is, and where a newer one comes from.
+ * What version this is, and where a release can be downloaded by hand.
  *
- * **What this file replaces.** `update.ts` was MixDB's own updater: a check, a download, an install,
- * a skip list and three `localStorage` keys, all driving `tauri-plugin-updater` against a feed at
- * `mixnz/mixdb`. T106 made MixEngine's updater the only one — one signed feed, one key, one payload,
- * and `update.status | check | decide | apply` on the daemon — so the plugin, its key and its feed
- * are gone and there is nothing here left to drive.
- *
- * What is kept is what a person opening MixLab's Settings actually needs: the running version, and
- * where updates come from. The pane that shows it is a signpost, because the pane a MixLab user
- * opens first is the shell's and the pane that updates MixEngine is inside a tab.
+ * MixLab updates itself since T187 (ADR 0056): the updater is `src/shell/update/` and
+ * `src-tauri/src/updater/`. What is left here is the running version and the release page, for a
+ * copy the updater cannot replace (a development build, or one something else installed).
  */
 
 import { useEffect, useState } from "react";

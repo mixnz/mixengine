@@ -141,8 +141,6 @@ const en = {
     prevTab: "Previous tab",
     reload: "Reload the pane on screen",
   },
-  // Which version is running, and where a newer one comes from. MixEngine's updater is the one that
-  // replaces this window \u2014 T106 \u2014 so this block is a signpost and not a downloader.
   // MixEngine in the tray (T168). The Linux tray menu's three items — sent to
   // `src-tauri/src/tray.rs` rather than kept in Rust.
   tray: {
@@ -150,14 +148,44 @@ const en = {
     openMain: "Open MixLab",
     quit: "Quit MixLab",
   },
+  // MixLab's own updater, in Settings → Updates (T187). It checks, downloads and installs whether
+  // or not MixEngine is running, and never installs without a click.
   update: {
     title: "Updates",
-    unavailable: "MixLab is updated with MixEngine.",
-    runningNow: "You are running {{version}}",
-    notCheckedYet: "Not checked yet.",
+    runningNow: "You're running {{version}}",
+    checkedAt: "Last checked at {{time}}.",
+    neverChecked: "Not checked yet.",
+    checkNow: "Check now",
+    checking: "Checking",
+    checkFailed: "Couldn't check for updates. {{message}}",
+    automatic: "Check for updates automatically",
+    automaticHint: "MixLab looks once when it starts and once a day. It never installs anything until you click Install.",
+    upToDate: "You're on the latest version.",
+    offered: "MixLab {{version}} is available",
+    size: "{{size}} MB to download.",
+    notesLink: "Read the release notes",
+    daemonRestarts: "If MixEngine is running, it stops for the update and starts again with the same services.",
+    install: "Install",
+    openInstaller: "Download installer",
+    later: "Later",
+    skip: "Skip this version",
+    skipped: "You skipped {{version}}. MixLab will tell you about the next one.",
+    downloading: "Downloading {{percent}}%",
+    installing: "Installing",
+    installerOpen: "The installer is open. Finish it there, then come back here.",
+    installerNotOpened: "The installer is downloaded. Run this command to install it:",
+    installerCommand: "Or install it from a terminal:",
+    installerFinish: "Finish",
+    installerReady: "{{version}} is installed. Click Finish to restart MixLab on it.",
+    installerReopen: "Open again",
+    installerBack: "Back",
+    noBuild: "{{version}} has no build for this machine yet.",
+    development: "This is a development build, so it doesn't update itself.",
+    elsewhere: "Something other than MixLab's installer put this copy here, so MixLab can't update it. Get the new version from the download page.",
     openPage: "Open the download page",
-    autoHint:
-      "MixLab arrives and is replaced with MixEngine — its installer puts the window in place, and MixEngine's own updater keeps it current. There is nothing to check for here.",
+    available: "MixLab {{version}} is available.",
+    view: "View",
+    dismissNotice: "Dismiss",
   },
   // What a failed backend command says. The keys here are the `code` an `AppError` carries \u2014 see
   // src-tauri/src/error.rs \u2014 and `{{message}}` is where a driver's own words go, untranslated
@@ -176,6 +204,12 @@ const en = {
       "The MixEngine pipe at {{endpoint}} is held by {{owner}}, not by this account.",
     mixengineRefused: "MixEngine refused: {{message}}",
     mixengineStartFailed: "Could not start MixEngine: {{message}}",
+    updateDaemonWouldNotStop: "MixEngine did not stop within 30 seconds, so nothing was replaced. Try again in a moment.",
+    updateNoBuild: "This release has no build for this machine.",
+    updateLocked: "Another update is running (process {{pid}}). Try again when it finishes.",
+    updateUnwritable: "MixLab can't write to the folder it's installed in, so it can't update itself here.",
+    updateFailed: "The update didn't install, and nothing was changed. {{message}}",
+    updateDaemonNotBack: "MixLab was updated, but MixEngine didn't start again. Start it from the MixEngine tab. {{cause}}",
     mixengineStorageFailed: "Could not read where MixEngine keeps its files: {{message}}",
     mixengineProtocol: "MixEngine answered something this version does not understand: {{message}}",
     // SSH

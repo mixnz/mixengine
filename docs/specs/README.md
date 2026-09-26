@@ -169,3 +169,4 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-25 | [An install completes itself from its own payload](2026-09-25-t185a-an-install-completes-itself-design.md) | T185a | implemented |
 | 2026-09-26 | [An uninstall forgets what it kept in the credential store](2026-09-26-t182d-an-uninstall-forgets-what-it-kept-in-the-credential-store-design.md) | T182d | implemented |
 | 2026-09-26 | [One Keychain question per home](2026-09-26-t186-one-keychain-question-per-home-design.md) | T186 | implemented |
+| 2026-09-26 | [T187 — MixLab updates itself](2026-09-26-t187-mixlab-updates-itself-design.md) | T187 | implemented |

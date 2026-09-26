@@ -607,6 +607,11 @@ design are linked decisions.
    Both cases are "run the installer to get the window", and the notes are the only place a person is
    told: the feed's own notes are the tag's commit subjects, written before the draft exists.
 
+   **Say once, in the first release carrying T187, that it is the last one reached the old way** —
+   [T187](../specs/2026-09-26-t187-mixlab-updates-itself-design.md), D11. A window from before it
+   has no MixLab updater, so this release arrives through the MixEngine tab, `mix self-update` or
+   the installer. From the next one, MixLab updates itself from Settings → Updates.
+
    **And take the two readings no machine can take** — roadmap task **T86a**, whose other half is
    measured by `packaging/*/probe.sh` on every run of the `build` job. Both need a *browser* download
    of the *published* asset, because that is what applies the mark the operating system reads; a file

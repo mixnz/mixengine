@@ -1997,20 +1997,10 @@ async fn serve(
         }
     });
 
-    // **The check at start and the clock after it** — roadmap task T88. Both silent on failure, and
-    // neither runs when `[updates] enabled = false`: that key is about what this daemon does
-    // unprompted, and `mix self-update` goes on working because a person who typed it is asking.
-    if config.updates.enabled {
-        crate::updates::start(
-            Arc::clone(&updates),
-            std::time::Duration::from_secs(config.updates.check_seconds),
-            shutdown.clone(),
-        );
-    } else {
-        tracing::debug!(
-            "[updates] enabled = false: this daemon will not look for a newer MixEngine"
-        );
-    }
+    // **No check at start and no clock** — ADR 0056 rule 8, T187. The feed is read only when
+    // somebody asks: `mix self-update`, `mix self-update --check`, or `update.check` from a client.
+    // A headless install may be a production server, and nothing there changes unless a person
+    // said so.
 
     tracing::info!(endpoint = %endpoint, "listening for clients");
 

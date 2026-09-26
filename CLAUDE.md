@@ -1,16 +1,27 @@
-# MixEngine
+# MixLab, and MixEngine inside it
 
-A local web development environment (ServBay-style): run and switch multiple PHP / Node.js /
-Python / Ruby versions, bundled Nginx/Caddy + MariaDB/MySQL/PostgreSQL/Redis/Memcached, local domains
-with automatic HTTPS — without Docker, without hand-written config files.
+**MixLab is the product.** A desktop application whose toolbox — a database client, a REST client,
+a terminal, tools — is complete on its own, and which carries **MixEngine** as one optional module.
+Many MixLab users never start MixEngine, and nothing MixLab needs from itself may depend on it:
+updates, Settings, sync and the toolbox all work with `mixengined` absent, stopped, or never run.
+See `docs/decisions/0056-mixlab-stands-without-mixengine.md`.
+
+**MixEngine is the engine**, and the whole product only for its headless distribution and the
+person who drives it with `mix`: a local web development environment (ServBay-style) that runs and
+switches multiple PHP / Node.js / Python / Ruby versions, bundled Nginx/Caddy +
+MariaDB/MySQL/PostgreSQL/Redis/Memcached, local domains with automatic HTTPS — without Docker,
+without hand-written config files. A headless install may run on a server and later in production.
+
+When a change touches the window, ask first: *does this still work with MixEngine switched off?*
 
 ## Architecture in one paragraph
 
-Rust core, split into three layers. **`mixengined`** (daemon) owns all state and supervises every
-managed process. **`mix`** (CLI) is a thin client over a JSON-RPC API on a local IPC transport (Unix
-socket / Windows named pipe), and the **desktop application** under `apps/desktop/` is a second
-thin client over the same API — typed against the published contract in `bindings/`, and reaching
-no further into this workspace than `mixengine-proto` and `mixengine-platform` (see
+MixEngine's Rust core is split into three layers. **`mixengined`** (daemon) owns all of MixEngine's
+state and supervises every managed process. **`mix`** (CLI) is a thin client over a JSON-RPC API on
+a local IPC transport (Unix socket / Windows named pipe). **MixLab**, under `apps/desktop/`, is an
+application of its own; its `mixengine` module is a second thin client over that same API — typed
+against the published contract in `bindings/`, and reaching no further into this workspace than
+`mixengine-proto` and `mixengine-platform` (see
 `docs/decisions/0027-the-desktop-client-lives-in-this-repository.md`). **Nothing runs as root.** For the few
 one-shot operations that need it (hosts file, OS trust store, resolver config, firewall rules), a
 short-lived **`mixengine-elevate`** is spawned through the OS elevation prompt, does the work, and
@@ -45,11 +56,21 @@ application's own set of rules; `server/README.md` is the server's.
 
 ## Non-negotiable rules
 
-- **No business logic in clients.** A client only renders what the daemon returns.
+- **MixLab stands without MixEngine.** Nothing MixLab does for itself — its toolbox, updates,
+  Settings, sync — requires `mixengined` to be installed, running or ever started, and the window
+  never starts the daemon to do a job of its own. Starting MixEngine is something a person asks for.
+  See `docs/decisions/0056-mixlab-stands-without-mixengine.md`.
+- **Nothing updates unasked.** MixEngine never downloads or installs a release on its own and
+  never reads the update feed unprompted — a headless install may be a production server. An
+  install that carries the window is updated by MixLab's own updater (`apps/desktop/src-tauri/`,
+  importing nothing from `crates/`), which may announce a release but installs only on a click.
+  `mix self-update` stays, and is the headless distribution's updater.
+- **No business logic in MixEngine's clients.** `mix` and the `mixengine` module only render what
+  the daemon returns.
 - **No client-only capability.** Every mutating API method is reachable from `mix`. A gap in the
-  CLI is a gap in the product — `docs/features/client-surface.md` is what any full graphical
-  client must be able to ask for, and the desktop application draws every screen from it.
-- **The desktop application is a client, not a second daemon.** Its `mixengine` module reaches
+  CLI is a gap in MixEngine — `docs/features/client-surface.md` is what any full graphical
+  client must be able to ask for, and MixLab's `mixengine` module draws every screen from it.
+- **MixLab's `mixengine` module is a client, not a second daemon.** It reaches
   the daemon only through the JSON-RPC API and the streams, typed against `bindings/`; its Rust may
   depend on `mixengine-proto` and `mixengine-platform` and on nothing else here
   (`apps/desktop/src-tauri/tests/layering.rs`).

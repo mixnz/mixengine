@@ -180,8 +180,11 @@ binaries. What they state is what the daemon **writes** —
 
 8. **Extensions** — browse the registry, install and uninstall, per-extension settings, and whatever
    an extension needs to be opened ([extensions.md](extensions.md)).
-9. **Settings** — root directory, managed TLDs, default web server, autostart, updates, and
-   `daemon.doctor_repair`. **Autostart is a switch and `autostart.status` is what it reads** (T85b):
+9. **Settings** — root directory, managed TLDs, default web server, autostart, and
+   `daemon.doctor_repair`. **Updates are not on this list for MixLab** (T187,
+   [ADR 0056](../decisions/0056-mixlab-stands-without-mixengine.md)): MixLab updates itself, with
+   or without the daemon, so its `mixengine` module draws none of `update.*`. Those methods stay for
+   `mix self-update` and for any other client. **Autostart is a switch and `autostart.status` is what it reads** (T85b):
    the answer says which mechanism this machine has, where the entry lives, and — the one thing a
    client must not work out for itself — whether an entry that *is* registered belongs to this home
    or to another one, which is a switch that must read "on, for a different home" rather than "on".

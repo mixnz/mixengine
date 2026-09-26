@@ -16,6 +16,7 @@ mod ssh;
 /// it; this is wired too (`sync::commands`), and public on top of that.
 pub mod sync;
 mod tray;
+mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -126,6 +127,20 @@ pub fn run() {
                     std::sync::Arc::new(sync::saved::CredentialStore),
                     platform::app_data_dir(app.handle()).map(|dir| dir.join("sync.db")),
                 ));
+            }
+
+            // An update that stopped MixEngine and was interrupted is finished here, and `.old`
+            // files an earlier update left are removed (T187, spec D8).
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(
+                    async move { updater::install::recover(&handle).await },
+                );
+            }
+
+            {
+                use tauri::Manager as _;
+                app.manage(updater::commands::UpdaterState::default());
             }
 
             launch::start(app.handle(), opening);

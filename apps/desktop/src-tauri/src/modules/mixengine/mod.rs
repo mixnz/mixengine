@@ -4,6 +4,7 @@
 pub mod commands;
 pub mod endpoint;
 pub mod events;
+pub mod for_update;
 pub mod health;
 pub mod logs;
 pub mod metrics;

@@ -2427,7 +2427,7 @@ async fn run(args: Args) -> Result<ExitCode, Error> {
         }
         Command::SelfUpdate { check, yes, finish } => {
             let asked = SelfUpdateAsk { check, yes, finish };
-            self_update(&root, &endpoint, autostart.as_ref(), args.json, asked).await
+            self_update(&endpoint, autostart.as_ref(), args.json, asked).await
         }
         Command::Domain { command } => {
             domain(command, &endpoint, autostart.as_ref(), args.json).await
@@ -3288,7 +3288,6 @@ struct SelfUpdateAsk {
 }
 
 async fn self_update(
-    root: &std::path::Path,
     endpoint: &Endpoint,
     autostart: Option<&Autostart>,
     json: bool,
@@ -3302,7 +3301,7 @@ async fn self_update(
     // mechanism the daemon already uses for its own single-instance guarantee.
     let _lock = match check {
         true => None,
-        false => Some(update_lock(root)?),
+        false => update_lock()?,
     };
 
     let mut client = Client::connect(endpoint, autostart).await?;
@@ -3463,35 +3462,49 @@ async fn relaunch(
 /// How long `mix self-update` waits for the daemon it just replaced to stop answering.
 const RELAUNCH_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// The lock file two `mix self-update` runs contend for.
-const SELF_UPDATE_LOCK: &str = "self-update.lock";
+/// The lock `mix self-update` and MixLab's updater both take — T187, spec D7.
+const UPDATE_LOCK: &str = "update.lock";
 
-/// Take the update lock, or say who has it.
+/// Take the update lock beside the binaries, or say who has it.
 ///
-/// `run/` is the one directory `[paths]` cannot move, which is what makes this the right place for
-/// it: a lock somebody could relocate would be a lock two runs could each hold their own copy of.
-fn update_lock(root: &std::path::Path) -> Result<mixengine_platform::lock::Lock, Error> {
-    let run = root.join("run");
-    let path = run.join(SELF_UPDATE_LOCK);
+/// **Beside the binaries, not in the home**, since T187. A lock belongs to what is being changed,
+/// and what an update changes is the directory holding `mixengined`, which several homes can share
+/// — and which MixLab's own updater, knowing nothing of homes, swaps too.
+fn update_lock() -> Result<Option<mixengine_platform::lock::Lock>, Error> {
+    let directory = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(std::path::Path::to_path_buf))
+        .ok_or_else(|| Error::new(ErrorCode::Io, "cannot tell which directory mix runs from"))?;
+    update_lock_in(&directory)
+}
 
-    // The daemon creates `run/` at start and this command has just connected to one, so it is there
-    // — but a `--no-autostart` run against a home that has never had a daemon would not have it.
-    std::fs::create_dir_all(&run).map_err(|source| {
-        Error::new(
-            ErrorCode::Io,
-            format!("cannot create {}: {source}", run.display()),
-        )
-    })?;
+/// [`update_lock`] in a directory the caller names, so a test needs no install.
+///
+/// **A directory this account cannot write holds no lock**, and the answer is `None`: nobody here
+/// swaps it (a `.pkg`, a `.deb`), so there is nothing to keep two updates apart over.
+fn update_lock_in(
+    directory: &std::path::Path,
+) -> Result<Option<mixengine_platform::lock::Lock>, Error> {
+    let path = directory.join(UPDATE_LOCK);
 
-    match mixengine_platform::lock::Lock::acquire(&path)
-        .map_err(|error| crate::error::to_wire(&error))?
-    {
-        mixengine_platform::lock::Acquired::Held(lock) => Ok(lock),
-        mixengine_platform::lock::Acquired::Taken(holder) => Err(Error::new(
+    match mixengine_platform::lock::Lock::acquire(&path) {
+        Ok(mixengine_platform::lock::Acquired::Held(lock)) => Ok(Some(lock)),
+        Ok(mixengine_platform::lock::Acquired::Taken(holder)) => Err(Error::new(
             ErrorCode::PreconditionFailed,
-            format!("another mix self-update is running ({holder})"),
+            format!("another update is running ({holder})"),
         )
-        .with_hint("wait for it to finish; two updates at once would interleave their swaps")),
+        .with_hint(
+            "wait for it to finish, whether it is mix self-update or MixLab; two updates at once              would interleave their swaps",
+        )),
+        Err(mixengine_platform::Error::Io { source, .. })
+            if matches!(
+                source.kind(),
+                std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem
+            ) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(crate::error::to_wire(&error)),
     }
 }
 
@@ -6712,5 +6725,20 @@ mod tests {
         // A row older than this task, or one whose reason this build cannot read: the sentence it
         // has always had, which says the true half of what is known.
         assert_eq!(super::vouching(true, None), missing);
+    }
+
+    /// **T187, spec D7.** The lock is the file beside the binaries that MixLab's updater takes too,
+    /// and a second taker is refused with the holder named.
+    #[test]
+    fn the_update_lock_is_the_file_beside_the_binaries() {
+        let directory = tempfile::tempdir().unwrap();
+
+        let held = update_lock_in(directory.path()).unwrap();
+        assert!(held.is_some());
+        assert!(directory.path().join(UPDATE_LOCK).exists());
+
+        let refused = update_lock_in(directory.path()).unwrap_err();
+        assert_eq!(refused.code, ErrorCode::PreconditionFailed);
+        assert!(refused.message.contains(&std::process::id().to_string()));
     }
 }

@@ -73,13 +73,6 @@ import type { ExtensionUninstall } from "@mixengine/api";
 import type { ExtensionRemoval } from "@mixengine/api";
 import type { AutostartReport } from "@mixengine/api";
 import type { PathReport } from "@mixengine/api";
-import type { UpdateStatus } from "@mixengine/api";
-import type { UpdateCheck } from "@mixengine/api";
-import type { UpdateDecide } from "@mixengine/api";
-import type { UpdateApply } from "@mixengine/api";
-import type { UpdateHandOver } from "@mixengine/api";
-import type { UpdateHandedOver } from "@mixengine/api";
-import type { UpdateApplied } from "@mixengine/api";
 import type { DoctorReport } from "@mixengine/api";
 import type { DoctorRepair } from "@mixengine/api";
 import type { RepairReport } from "@mixengine/api";
@@ -577,33 +570,6 @@ export function pathUninstall(): Promise<PathReport> {
   return invoke<PathReport>("mixengine_path_uninstall");
 }
 
-export function updateStatus(): Promise<UpdateStatus> {
-  return invoke<UpdateStatus>("mixengine_update_status");
-}
-
-export function updateCheck(input: UpdateCheck): Promise<UpdateStatus> {
-  return invoke<UpdateStatus>("mixengine_update_check", { params: input });
-}
-
-export function updateDecide(input: UpdateDecide): Promise<UpdateStatus> {
-  return invoke<UpdateStatus>("mixengine_update_decide", { params: input });
-}
-
-/** Daemon tự thoát ngay sau khi trả lời — kết nối đóng theo sau là thành công, không phải lỗi. */
-export function updateApply(input: UpdateApply): Promise<UpdateApplied> {
-  return invoke<UpdateApplied>("mixengine_update_apply", { params: input });
-}
-
-/** `update.hand_over`: the daemon downloads, checks and opens the .pkg, and keeps running (T88f). */
-export function updateHandOver(input: UpdateHandOver): Promise<UpdateHandedOver> {
-  return invoke<UpdateHandedOver>("mixengine_update_hand_over", { params: input });
-}
-
-/** `update.finish`: the daemon answers and exits, as after `update.apply` (T88f). */
-export function updateFinish(): Promise<UpdateApplied> {
-  return invoke<UpdateApplied>("mixengine_update_finish");
-}
-
 /** `service.stop` for every declared service, in reverse dependency order, waiting until done. */
 export function serviceStopAll(): Promise<unknown> {
   return invoke("mixengine_service_stop_all");
@@ -616,23 +582,6 @@ export function serviceStopAll(): Promise<unknown> {
  */
 export function shutdown(): Promise<DaemonShutdown> {
   return invoke<DaemonShutdown>("mixengine_shutdown");
-}
-
-/** Bản cập nhật vừa rồi có thay chính cửa sổ này không — `src-tauri/src/relaunch.rs`. */
-export type Relaunch = "relaunching" | "notReplaced" | "elsewhere";
-
-/**
- * Sau `update.apply`: cửa sổ này có phải thứ vừa bị thay không, và nếu phải thì khởi động lại — T106.
- *
- * Lệnh của chính ứng dụng chứ không phải của daemon, nhưng vẫn khai báo ở đây: `api.ts` là chỗ duy
- * nhất module này gọi `invoke()`. Chỉ đưa sang hai trường mà phía Rust đọc, vì `UpdateApplied` là
- * kiểu của `bindings/` và bên kia không phụ thuộc `mixengine-proto`.
- */
-export function relaunchAfterUpdate(applied: UpdateApplied): Promise<Relaunch> {
-  return invoke<Relaunch>("relaunch_after_update", {
-    directory: applied.directory,
-    replaced: applied.replaced,
-  });
 }
 
 export function doctor(): Promise<DoctorReport> {

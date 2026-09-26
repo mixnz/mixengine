@@ -15,6 +15,7 @@ import { useScrollAcceleration } from "../core/scroll";
 import { useShortcut, useShortcutDispatcher } from "../core/shortcuts";
 import { useAccent, useTheme } from "./theme";
 import { useTranslation } from "../i18n";
+import { useUpdates } from "./update";
 import type { TabBadge } from "./module";
 import { onTabRequest, takeTabRequests } from "./launch";
 import { readSession, writeSession } from "./session";
@@ -34,6 +35,9 @@ import { startSync, SYNC_NOW_EVENT } from "./sync";
 import { useSyncActivity } from "./sync/activity";
 import { syncClosingHere, syncStatus } from "./sync/api";
 import { closingSoon } from "./sync/closing";
+
+/** Where the update notice remembers which release it was last shown for (T187). */
+const NOTICED_KEY = "mixlab.update.noticed";
 
 interface WorkspaceProps {
   /** The module ids this window draws — `shell/profiles.ts`. */
@@ -139,6 +143,29 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** The pane Settings opens on this time; `undefined` is its own default. */
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
+  /* MixLab's own updater — T187. Here rather than in the pane, so the Settings button can say that
+     a release is waiting whatever modules are visible, and the pane reads the same state. */
+  const updates = useUpdates(settingsOpen);
+  const offered = updates.view === "offer" && !updates.later ? (updates.status?.feed?.version ?? null) : null;
+  /* The version the notice was last shown for, so it appears once per release (spec D9). Browser
+     storage, wrapped: a notice shown twice is the worst a failed read can do. */
+  const [noticed, setNoticed] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(NOTICED_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const notice = offered !== null && offered !== noticed;
+  const markNoticed = () => {
+    if (offered === null) return;
+    setNoticed(offered);
+    try {
+      localStorage.setItem(NOTICED_KEY, offered);
+    } catch {
+      /* Nothing to do: the notice comes back next start, which is harmless. */
+    }
+  };
   /* Where the `[+]` menu was asked for, while it is open. Never set with one module: the button
      opens a tab outright then, exactly as it did before there was a registry. */
   const [moduleMenu, setModuleMenu] = useState<{ x: number; y: number } | null>(null);
@@ -366,7 +393,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
            — it is the one control that is there on every screen the app has. */
         end={
           <Button
-            className="brand-settings"
+            className={offered !== null ? "brand-settings has-update" : "brand-settings"}
             onClick={() => {
               setSettingsSection(undefined);
               setSettingsOpen(true);
@@ -376,7 +403,9 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
                 ? t("app.settingsUploading")
                 : syncDirection === "down"
                   ? t("app.settingsDownloading")
-                  : t("app.settings")
+                  : offered !== null
+                    ? t("update.available", { version: offered })
+                    : t("app.settings")
             }
             aria-label={t("app.settings")}
           >
@@ -504,6 +533,22 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
         />
       )}
 
+      {notice && (
+        <TabNotice
+          message={t("update.available", { version: offered })}
+          action={{
+            label: t("update.view"),
+            onClick: () => {
+              markNoticed();
+              setSettingsSection("update");
+              setSettingsOpen(true);
+            },
+          }}
+          dismissLabel={t("update.dismissNotice")}
+          onDismiss={markNoticed}
+        />
+      )}
+
       <div className="tab-content">
         {/* Only the tabs that have been looked at. One restored from the last session is drawn on
             the strip above and has no pane down here until it is picked. */}
@@ -571,6 +616,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
           }}
           initialSection={settingsSection}
           onClose={() => setSettingsOpen(false)}
+          updates={updates}
         />
       )}
     </main>
