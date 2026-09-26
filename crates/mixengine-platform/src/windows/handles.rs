@@ -68,13 +68,6 @@ pub(crate) struct OpenHandle {
 ///
 /// A process this one may not duplicate from — another user's, SYSTEM's — is skipped: what it holds
 /// is met by the rename's retry instead (the T182e design, "What this does not do").
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "T182e task 2 gives it its caller, `occupants::held_under`"
-    )
-)]
 pub(crate) fn open_on_disk(budget: Duration) -> Vec<OpenHandle> {
     if budget.is_zero() {
         return Vec::new();
