@@ -950,6 +950,7 @@ mix uninstall [OPTIONS]
 | `--keep-home` | Leave this home's directory where it is, and undo only what is outside it. Keeps the databases in `data/`, the certificates and everything else this home holds. The daemon keeps running, because there is still a home for it to serve. |
 | `--keep-relocated` | Leave the directories `[paths]` moved out of the home where they are. Its own choice, apart from `--keep-home`: a home can go while `data/` on another disk stays, or the reverse. A directory that was never moved is inside the home. |
 | `--relocated` | With `--dry-run`: print only the relocated directories, one path per line. For a program to read — the Windows uninstaller shows them before it asks anything. |
+| `--blocked` | With `--dry-run`: print only the programs in the way, one per line, with the pid and the folder each one uses. Prints nothing when nothing is in the way. For a program to read: the Windows uninstaller shows the list before it removes anything. |
 | `--yes` | Answer the confirmation in advance, for a script with nobody at the keyboard |
 | `--no-wait` | Start the work and print the job, rather than waiting for it to finish |
 

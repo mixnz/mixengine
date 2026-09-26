@@ -348,11 +348,11 @@ enum Command {
         #[arg(long, requires = "dry_run")]
         relocated: bool,
 
-        /// With `--dry-run`: print only what is in the way, one program per line — its name, its pid
-        /// and the folder it holds or runs from.
+        /// With `--dry-run`: print only the programs in the way, one per line, with the pid and the
+        /// folder each one uses.
         ///
-        /// For a program to read — the Windows uninstaller lists them on a page of their own before
-        /// it changes anything (T182e). Empty when nothing is in the way.
+        /// Prints nothing when nothing is in the way. For a program to read: the Windows uninstaller
+        /// shows the list before it removes anything.
         #[arg(long, requires = "dry_run", conflicts_with = "relocated")]
         blocked: bool,
 
