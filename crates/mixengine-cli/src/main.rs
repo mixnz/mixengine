@@ -3057,11 +3057,12 @@ async fn uninstall(
     }
 
     // T182e, D6: the listing the uninstaller's "close these first" page reads — one line per program
-    // in the way, and nothing else. A question and not a refusal, so it succeeds either way.
+    // in the way, and nothing else. A question and not a refusal, so it succeeds either way. ASCII
+    // only: the uninstaller reads it through `nsExec`, which spells a dash as three other characters.
     if blocked {
         for item in &planned.items {
             if matches!(item.outcome, Removal::Blocked { .. }) {
-                emit(&format!("{} — {}\n", item.what, item.location))?;
+                emit(&format!("{}: {}\n", item.what, item.location))?;
             }
         }
 
