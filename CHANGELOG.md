@@ -2,7 +2,13 @@
 
 ## Unreleased
 
+### Added
+- MixLab checks for, downloads and installs its own updates from Settings → Updates, whether or not
+  MixEngine is running. A dot on the Settings button says when a new version is waiting.
+
 ### Changed
+- MixEngine no longer checks for updates on its own. Run `mix self-update --check` to ask.
+- The MixEngine tab no longer has an Updates section. Updates live in MixLab's Settings.
 - While sync runs, MixLab shows a download icon when it fetches changes and an upload icon only when
   it sends yours, in place of the spinning one.
 
