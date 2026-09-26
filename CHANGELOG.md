@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.0.9
+
 ### Added
 - MixLab checks for, downloads and installs its own updates from Settings → Updates, whether or not
   MixEngine is running. A dot on the Settings button says when a new version is waiting.
