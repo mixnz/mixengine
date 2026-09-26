@@ -229,6 +229,62 @@ async fn a_program_running_from_the_home_blocks_with_exit_code_three() {
     );
 }
 
+/// T182e, D4. A program *standing* in the home — a working directory, which cannot be moved — makes
+/// the dry run exit `3` and name it.
+#[cfg(windows)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_program_standing_in_the_home_blocks_with_exit_code_three() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let directory = home.path().join("t182e-standing");
+    std::fs::create_dir_all(&directory).expect("a directory in the home");
+    let ping = std::path::PathBuf::from(std::env::var("SystemRoot").expect("SystemRoot"))
+        .join(r"System32\PING.EXE");
+    let mut occupant = std::process::Command::new(ping)
+        .args(["-n", "30", "127.0.0.1"])
+        .current_dir(&directory)
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("start the occupant");
+
+    let printed = home.mix(&["uninstall", "--dry-run"]);
+
+    let _ = occupant.kill();
+    let _ = occupant.wait();
+
+    let said = stdout(&printed);
+    assert_eq!(printed.status.code(), Some(3), "{said}");
+    assert!(said.contains("BLOCKED"), "{said}");
+    assert!(said.contains(&format!("(pid {})", occupant.id())), "{said}");
+}
+
+/// T182e, D4. A directory only *watched* — what an editor does — can be moved, so it is not in the
+/// way and the dry run does not block.
+#[cfg(windows)]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_watched_folder_in_the_home_does_not_block() {
+    use std::os::windows::fs::OpenOptionsExt as _;
+
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let directory = home.path().join("t182e-watched");
+    std::fs::create_dir_all(&directory).expect("a directory in the home");
+    let _watch = std::fs::OpenOptions::new()
+        .access_mode(0x0010_0081)
+        .share_mode(0x7)
+        .custom_flags(0x0200_0000)
+        .open(&directory)
+        .expect("the directory watched");
+
+    let printed = home.mix(&["uninstall", "--dry-run"]);
+
+    let said = stdout(&printed);
+    assert_ne!(printed.status.code(), Some(3), "{said}");
+    assert!(!said.contains("BLOCKED"), "{said}");
+}
+
 /// T182, D9. `--relocated` without `--dry-run` is refused by the parser: it changes nothing, and
 /// must never be mistaken for the act.
 #[test]
