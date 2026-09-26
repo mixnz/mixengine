@@ -8,6 +8,7 @@
 #![allow(dead_code, reason = "the commands that call this arrive with T187f")]
 
 pub mod feed;
+pub mod handover;
 pub mod install;
 pub mod lock;
 pub mod placement;

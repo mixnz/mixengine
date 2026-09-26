@@ -25,6 +25,13 @@ use super::rpc;
 const GONE_TIMEOUT: Duration = Duration::from_secs(30);
 const POLL: Duration = Duration::from_millis(200);
 
+/// The directory holding the `mixengined` the platform finds: where an installer put it, which is
+/// not the window's directory after a `.pkg` or a `.deb` (`/usr/local/bin`, `/usr/bin`).
+pub fn daemon_directory() -> Option<std::path::PathBuf> {
+    mixengine_platform::install::program_path("mixengined")
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+}
+
 /// Whether a daemon answers on this machine's endpoint. Never starts one.
 pub async fn running() -> bool {
     health::presence().await.presence == Presence::Running
