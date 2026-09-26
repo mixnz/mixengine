@@ -2,14 +2,29 @@
 
 ## Unreleased
 
+## v0.0.8
+
 ### Added
 - MixLab puts `php`, `node`, `python` and the rest on your PATH in one click: a switch in Settings,
   and a reminder on the Dashboard until it is done. Same as `mix path install`, no admin prompt.
 - A Mac that installed MixLab from the `.pkg` can now update from MixLab or with `mix self-update`.
   The next `.pkg` opens in Installer.app, and when it is done MixEngine restarts on the new version
   with your services. Install the first version that can do this by hand, once.
+- The Dashboard, the Services screen and `mix service list` show which version each service runs.
 
 ### Changed
+- On Windows, uninstalling MixLab removes everything it set up on the machine: the hosts entries,
+  the certificate, the `.test` DNS rule and the port grant. You choose whether to keep your data and
+  any folders you moved elsewhere. If a program still has a file open, the uninstaller names it and
+  changes nothing. The Uninstall section in MixLab is gone.
+- MixEngine keeps its admin helper up to date on its own. After an update it asks for admin rights
+  once, and only when the helper changed.
+- Each system has two downloads: the installer with MixLab, and the same installer without it. The
+  zip, tarball and AppImage downloads are gone, and a Linux package updates through its installer.
+- On Windows, the commands in MixEngine's `bin` folder take about 14 MB instead of about 220 MB, and
+  each `php` or `node` you type starts a few milliseconds sooner.
+- An idle MixEngine uses far less CPU. The Dashboard stops asking for live numbers while MixLab's
+  window is not in focus.
 - On macOS, after an update MixEngine asks for your login password once to reach your database
   passwords. Before, it asked once for each of them.
 
@@ -18,6 +33,9 @@
   Before, installing it again signed you straight back in.
 - On macOS, opening MixLab again after closing its window to the tray shows the window. Before, only
   the tray's Open MixLab did.
+- The installer screen in MixLab no longer gets stuck. It has Open installer again and Back.
+- The PATH switch in Settings and the reminder on the Dashboard show the current state each time you
+  come back to them.
 
 ## v0.0.7
 

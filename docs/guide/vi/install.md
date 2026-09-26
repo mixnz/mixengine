@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "37c36dbc8dc39ba547c9e9c39bcdc26e0ac1d14c3af386e57577bd1021b6c576"
+source_sha256 = "7f0a5882ec2308036adeceb2630bd85198ac63018285446561f0d5a9d1aa877c"
 +++
 
 # Cài đặt MixLab
@@ -22,7 +22,7 @@ tính năng cần tới chúng. Chi tiết xem ở [MixLab xin quyền để là
 **Hiện chưa có bản phát hành ổn định.** Mọi link tải bên dưới là URL cố định, GitHub luôn trỏ nó
 tới bản mới nhất *không phải* pre-release. Vì vậy khi bản ổn định đầu tiên ra mắt, các link này sẽ
 tự hoạt động mà không cần sửa trang này. Trong lúc chờ, bạn lấy bản pre-release mới nhất thủ công
-tại [trang releases](https://github.com/mixnz/mixlab/releases). Hiện tại đó là `v0.0.7`.
+tại [trang releases](https://github.com/mixnz/mixlab/releases). Hiện tại đó là `v0.0.8`.
 
 ## Bạn đang cài những gì
 

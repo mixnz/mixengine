@@ -3569,7 +3569,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-platform"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "dbus-secret-service",
  "directories",
@@ -3592,7 +3592,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-proto"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "serde",
  "serde_json",
@@ -3601,7 +3601,7 @@ dependencies = [
 
 [[package]]
 name = "mixlab"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "arboard",
  "argon2 0.5.3",
